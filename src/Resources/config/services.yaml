@@ -4,5 +4,9 @@ services:
     autowire: true      # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
 
-#  Tourze\SinaWeiboOAuth2Bundle\EventSubscriber\:
-#    resource: '../../EventSubscriber/'
+  Tourze\SinaWeiboOAuth2Bundle\Command\:
+    resource: '../../Command/'
+  Tourze\SinaWeiboOAuth2Bundle\Repository\:
+    resource: '../../Repository/'
+  Tourze\SinaWeiboOAuth2Bundle\Service\:
+    resource: '../../Service/'
