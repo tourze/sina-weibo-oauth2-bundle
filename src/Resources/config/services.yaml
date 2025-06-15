@@ -3,6 +3,7 @@ services:
   _defaults:
     autowire: true      # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+    public: false
 
   # Services
   Tourze\SinaWeiboOAuth2Bundle\Service\:
@@ -21,8 +22,3 @@ services:
   Tourze\SinaWeiboOAuth2Bundle\Command\:
     resource: '../../Command/'
     tags: ['console.command']
-
-  # Auto-loader for attribute-based routing
-  Tourze\SinaWeiboOAuth2Bundle\Service\AttributeControllerLoader:
-    arguments:
-      $env: '%kernel.environment%'

@@ -26,24 +26,40 @@ class SinaWeiboOAuth2RepositoryTest extends KernelTestCase
 
     public function testConfigRepositoryFindValidConfig(): void
     {
+        // Create active config first
+        $activeConfig = new SinaWeiboOAuth2Config();
+        $activeConfig->setAppId('active_app')
+            ->setAppSecret('active_secret')
+            ->setValid(true);
+        $this->persistAndFlush($activeConfig);
+        
+        // Add a delay to ensure timestamp difference
+        usleep(50000); // 50ms
+
         // Create inactive config
         $inactiveConfig = new SinaWeiboOAuth2Config();
         $inactiveConfig->setAppId('inactive_app')
             ->setAppSecret('inactive_secret')
             ->setValid(false);
         $this->persistAndFlush($inactiveConfig);
-
-        // Create active config
-        $activeConfig = new SinaWeiboOAuth2Config();
-        $activeConfig->setAppId('active_app')
-            ->setAppSecret('active_secret')
+        
+        // Add another delay to ensure newer timestamp
+        usleep(50000); // 50ms
+        
+        // Create another active config (newer)
+        $newerActiveConfig = new SinaWeiboOAuth2Config();
+        $newerActiveConfig->setAppId('new_app_id')
+            ->setAppSecret('new_secret')
             ->setValid(true);
-        $this->persistAndFlush($activeConfig);
+        $this->persistAndFlush($newerActiveConfig);
 
+        // Clear cache to ensure fresh data is retrieved
+        $this->configRepository->invalidateCache();
+        
         $result = $this->configRepository->findValidConfig();
 
         $this->assertNotNull($result);
-        $this->assertEquals('active_app', $result->getAppId());
+        $this->assertEquals('new_app_id', $result->getAppId());
         $this->assertTrue($result->isActive());
     }
 

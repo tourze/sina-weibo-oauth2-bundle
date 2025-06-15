@@ -23,16 +23,16 @@ class SinaWeiboOAuth2State implements \Stringable
     #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => 'OAuth2状态码'])]
     private string $state;
 
-    #[ORM\ManyToOne(targetEntity: SinaWeiboOAuth2Config::class)]
+    #[ORM\ManyToOne(targetEntity: SinaWeiboOAuth2Config::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false)]
     private SinaWeiboOAuth2Config $config;
 
     #[IndexColumn]
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ['comment' => '过期时间'])]
+    #[ORM\Column(name: 'expire_time', type: Types::DATETIME_MUTABLE, options: ['comment' => '过期时间'])]
     private \DateTime $expireTime;
 
     #[IndexColumn]
-    #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => '会话ID'])]
+    #[ORM\Column(name: 'session_id', type: Types::STRING, length: 255, nullable: true, options: ['comment' => '会话ID'])]
     private ?string $sessionId = null;
 
     #[ORM\Column(type: Types::BOOLEAN, options: ['comment' => '是否已使用', 'default' => false])]
@@ -100,5 +100,16 @@ class SinaWeiboOAuth2State implements \Stringable
     public function __toString(): string
     {
         return sprintf('SinaWeiboOAuth2State[%s]', $this->state ?? 'new');
+    }
+
+    // Compatibility methods for tests
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->getCreateTime();
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->getUpdateTime();
     }
 }

@@ -6,7 +6,6 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2StateRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2UserRepository;
-use Tourze\SinaWeiboOAuth2Bundle\Service\AttributeControllerLoader;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 use Tourze\SinaWeiboOAuth2Bundle\Tests\TestKernel;
 
@@ -27,7 +26,6 @@ class SinaWeiboOAuth2BundleTest extends KernelTestCase
         $this->assertTrue($container->has(SinaWeiboOAuth2ConfigRepository::class));
         $this->assertTrue($container->has(SinaWeiboOAuth2StateRepository::class));
         $this->assertTrue($container->has(SinaWeiboOAuth2UserRepository::class));
-        $this->assertTrue($container->has(AttributeControllerLoader::class));
 
         // Test that services can be instantiated
         $oauth2Service = $container->get(SinaWeiboOAuth2Service::class);

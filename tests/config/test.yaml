@@ -9,6 +9,9 @@ framework:
         default_uuid_version: 7
         time_based_uuid_version: 7
     http_client: ~
+    router:
+        utf8: true
+        resource: '%kernel.project_dir%/src/Resources/config/routes.yaml'
 
 doctrine:
     dbal:
@@ -17,9 +20,16 @@ doctrine:
         charset: utf8mb4
     orm:
         auto_generate_proxy_classes: true
-        auto_mapping: true
+        auto_mapping: false
         controller_resolver:
             auto_mapping: false
+        mappings:
+            SinaWeiboOAuth2Bundle:
+                is_bundle: false
+                type: attribute
+                dir: '%kernel.project_dir%/src/Entity'
+                prefix: 'Tourze\SinaWeiboOAuth2Bundle\Entity'
+                alias: SinaWeiboOAuth2Bundle
 
 security:
     providers:
@@ -30,4 +40,43 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
         main:
-            anonymous: true
+            lazy: true
+
+services:
+    # Make services public for testing
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: true
+        
+    Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service:
+        public: true
+        
+    Tourze\SinaWeiboOAuth2Bundle\Command\:
+        resource: '../../src/Command/*'
+        tags: ['console.command']
+        
+    Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository:
+        public: true
+        arguments:
+            - '@doctrine'
+        tags:
+            - { name: 'doctrine.repository_service' }
+            
+    Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2StateRepository:
+        public: true
+        arguments:
+            - '@doctrine'
+        tags:
+            - { name: 'doctrine.repository_service' }
+            
+    Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2UserRepository:
+        public: true
+        arguments:
+            - '@doctrine'
+        tags:
+            - { name: 'doctrine.repository_service' }
+            
+    Tourze\SinaWeiboOAuth2Bundle\Controller\:
+        resource: '../../src/Controller/*'
+        tags: ['controller.service_arguments']

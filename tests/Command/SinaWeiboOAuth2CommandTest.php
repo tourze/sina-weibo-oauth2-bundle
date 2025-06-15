@@ -8,6 +8,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Config;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2State;
+use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2User;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2StateRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Tests\TestKernel;
@@ -58,6 +59,9 @@ class SinaWeiboOAuth2CommandTest extends KernelTestCase
     {
         $command = $this->application->find('sina-weibo-oauth2:config');
         $commandTester = new CommandTester($command);
+
+        // Clear any existing cache
+        $this->configRepository->invalidateCache();
 
         $commandTester->execute([
             'action' => 'create',
@@ -130,16 +134,21 @@ class SinaWeiboOAuth2CommandTest extends KernelTestCase
         $command = $this->application->find('sina-weibo-oauth2:config');
         $commandTester = new CommandTester($command);
 
+        // Refresh entity to ensure ID is available
+        $this->entityManager->refresh($config);
+        $configId = $config->getId();
+        $this->assertNotNull($configId, 'Config ID should not be null after flush');
+        
         $commandTester->execute([
             'action' => 'delete',
-            '--id' => $config->getId()
+            '--id' => $configId
         ]);
 
         $output = $commandTester->getDisplay();
         $this->assertStringContainsString('Deleted Sina Weibo OAuth2 configuration', $output);
 
         // Verify config was deleted
-        $deletedConfig = $this->configRepository->find($config->getId());
+        $deletedConfig = $this->configRepository->find($configId);
         $this->assertNull($deletedConfig);
     }
 
@@ -238,6 +247,7 @@ class SinaWeiboOAuth2CommandTest extends KernelTestCase
         $classes = [
             $em->getClassMetadata(SinaWeiboOAuth2Config::class),
             $em->getClassMetadata(SinaWeiboOAuth2State::class),
+            $em->getClassMetadata(SinaWeiboOAuth2User::class),
         ];
 
         $schemaTool->dropSchema($classes);

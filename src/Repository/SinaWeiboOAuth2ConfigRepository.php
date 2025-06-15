@@ -4,7 +4,6 @@ namespace Tourze\SinaWeiboOAuth2Bundle\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Psr\Cache\CacheItemInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Config;
@@ -44,7 +43,8 @@ class SinaWeiboOAuth2ConfigRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('c')
             ->where('c.valid = :valid')
             ->setParameter('valid', true)
-            ->orderBy('c.createdAt', 'DESC')
+            ->orderBy('c.createTime', 'DESC')
+            ->addOrderBy('c.id', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
@@ -55,14 +55,14 @@ class SinaWeiboOAuth2ConfigRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('c')
             ->where('c.valid = :valid')
             ->setParameter('valid', true)
-            ->orderBy('c.createdAt', 'DESC')
+            ->orderBy('c.createTime', 'DESC')
             ->getQuery()
             ->getResult();
     }
 
     public function invalidateCache(): void
     {
-        if ($this->cache instanceof CacheItemInterface) {
+        if ($this->cache) {
             $this->cache->delete(self::CACHE_KEY_VALID_CONFIG);
         }
     }

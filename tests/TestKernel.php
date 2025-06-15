@@ -10,7 +10,6 @@ use Symfony\Component\HttpKernel\Kernel;
 use Tourze\DoctrineIndexedBundle\DoctrineIndexedBundle;
 use Tourze\DoctrineTimestampBundle\DoctrineTimestampBundle;
 use Tourze\SinaWeiboOAuth2Bundle\SinaWeiboOAuth2Bundle;
-use Tourze\SymfonyRoutingAutoLoaderBundle\SymfonyRoutingAutoLoaderBundle;
 
 class TestKernel extends Kernel
 {
@@ -22,7 +21,6 @@ class TestKernel extends Kernel
             new SecurityBundle(),
             new DoctrineIndexedBundle(),
             new DoctrineTimestampBundle(),
-            new SymfonyRoutingAutoLoaderBundle(),
             new SinaWeiboOAuth2Bundle(),
         ];
     }

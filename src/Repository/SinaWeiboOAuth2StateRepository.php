@@ -60,7 +60,7 @@ class SinaWeiboOAuth2StateRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('s')
             ->where('s.sessionId = :sessionId')
             ->setParameter('sessionId', $sessionId)
-            ->orderBy('s.createdAt', 'DESC')
+            ->orderBy('s.createTime', 'DESC')
             ->getQuery()
             ->getResult();
     }

@@ -25,7 +25,7 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('u')
             ->where('u.uid = :uid')
             ->setParameter('uid', $uid)
-            ->orderBy('u.createdAt', 'DESC')
+            ->orderBy('u.createTime', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
@@ -108,7 +108,7 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('u')
             ->where('u.tokenExpireTime > :now')
             ->setParameter('now', new \DateTime())
-            ->orderBy('u.createdAt', 'DESC')
+            ->orderBy('u.createTime', 'DESC')
             ->getQuery()
             ->getResult();
     }
@@ -118,7 +118,7 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('u')
             ->where('u.config = :config')
             ->setParameter('config', $config)
-            ->orderBy('u.createdAt', 'DESC')
+            ->orderBy('u.createTime', 'DESC')
             ->getQuery()
             ->getResult();
     }

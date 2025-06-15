@@ -100,4 +100,15 @@ class SinaWeiboOAuth2Config implements \Stringable
     {
         return sprintf('SinaWeiboOAuth2Config[%s]', $this->appId ?? 'new');
     }
+
+    // Compatibility methods for tests
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->getCreateTime();
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->getUpdateTime();
+    }
 }

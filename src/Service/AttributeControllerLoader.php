@@ -25,15 +25,15 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
         return $this->autoload();
     }
 
+    public function supports(mixed $resource, ?string $type = null): bool
+    {
+        return false;
+    }
+
     public function autoload(): RouteCollection
     {
         $collection = new RouteCollection();
         $collection->addCollection($this->controllerLoader->load(SinaWeiboOAuth2Controller::class));
         return $collection;
-    }
-
-    public function supports(mixed $resource, ?string $type = null): bool
-    {
-        return false;
     }
 }

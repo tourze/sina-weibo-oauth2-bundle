@@ -82,8 +82,9 @@ class SinaWeiboOAuth2StateTest extends TestCase
     {
         $state = new SinaWeiboOAuth2State('test_state', $this->config);
 
-        $this->assertInstanceOf(\DateTime::class, $state->getCreatedAt());
-        $this->assertInstanceOf(\DateTime::class, $state->getUpdatedAt());
+        // Timestamps are null until persisted
+        $this->assertNull($state->getCreatedAt());
+        $this->assertNull($state->getUpdatedAt());
     }
 
     protected function setUp(): void

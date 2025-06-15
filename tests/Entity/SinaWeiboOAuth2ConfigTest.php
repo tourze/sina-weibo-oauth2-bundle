@@ -13,8 +13,9 @@ class SinaWeiboOAuth2ConfigTest extends TestCase
         
         $this->assertNull($config->getId());
         $this->assertTrue($config->isActive());
-        $this->assertInstanceOf(\DateTime::class, $config->getCreatedAt());
-        $this->assertInstanceOf(\DateTime::class, $config->getUpdatedAt());
+        // Timestamps are null until persisted
+        $this->assertNull($config->getCreatedAt());
+        $this->assertNull($config->getUpdatedAt());
     }
 
     public function testSettersAndGetters(): void

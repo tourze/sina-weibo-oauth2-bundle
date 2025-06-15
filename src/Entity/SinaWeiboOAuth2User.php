@@ -28,10 +28,10 @@ class SinaWeiboOAuth2User implements \Stringable
     private string $accessToken;
 
     #[IndexColumn]
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ['comment' => '令牌过期时间'])]
+    #[ORM\Column(name: 'token_expire_time', type: Types::DATETIME_MUTABLE, options: ['comment' => '令牌过期时间'])]
     private \DateTime $tokenExpireTime;
 
-    #[ORM\Column(type: Types::TEXT, nullable: true, options: ['comment' => '刷新令牌'])]
+    #[ORM\Column(name: 'refresh_token', type: Types::TEXT, nullable: true, options: ['comment' => '刷新令牌'])]
     private ?string $refreshToken = null;
 
     #[ORM\ManyToOne(targetEntity: SinaWeiboOAuth2Config::class)]
@@ -53,7 +53,7 @@ class SinaWeiboOAuth2User implements \Stringable
     #[ORM\Column(type: Types::STRING, length: 500, nullable: true, options: ['comment' => '个人描述'])]
     private ?string $description = null;
 
-    #[ORM\Column(type: Types::JSON, nullable: true, options: ['comment' => '原始API响应数据'])]
+    #[ORM\Column(name: 'raw_data', type: Types::JSON, nullable: true, options: ['comment' => '原始API响应数据'])]
     private ?array $rawData = null;
 
     public function __construct(string $uid, string $accessToken, int $expiresIn, SinaWeiboOAuth2Config $config)
@@ -186,5 +186,16 @@ class SinaWeiboOAuth2User implements \Stringable
     public function __toString(): string
     {
         return sprintf('SinaWeiboOAuth2User[%s:%s]', $this->uid ?? 'new', $this->nickname ?? 'unknown');
+    }
+
+    // Compatibility methods for tests
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->getCreateTime();
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->getUpdateTime();
     }
 }

@@ -95,8 +95,9 @@ class SinaWeiboOAuth2UserTest extends TestCase
     {
         $user = new SinaWeiboOAuth2User('test_uid', 'test_token', 3600, $this->config);
 
-        $this->assertInstanceOf(\DateTime::class, $user->getCreatedAt());
-        $this->assertInstanceOf(\DateTime::class, $user->getUpdatedAt());
+        // Timestamps are null until persisted
+        $this->assertNull($user->getCreatedAt());
+        $this->assertNull($user->getUpdatedAt());
     }
 
     protected function setUp(): void

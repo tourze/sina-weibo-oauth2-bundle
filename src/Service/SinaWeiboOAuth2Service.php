@@ -25,13 +25,13 @@ class SinaWeiboOAuth2Service
     private const MAX_RETRY_ATTEMPTS = 3;
 
     public function __construct(
-        private HttpClientInterface $httpClient,
-        private SinaWeiboOAuth2ConfigRepository $configRepository,
-        private SinaWeiboOAuth2StateRepository $stateRepository,
-        private SinaWeiboOAuth2UserRepository $userRepository,
-        private EntityManagerInterface $entityManager,
-        private UrlGeneratorInterface $urlGenerator,
-        private ?LoggerInterface $logger = null
+        private readonly HttpClientInterface $httpClient,
+        private readonly SinaWeiboOAuth2ConfigRepository $configRepository,
+        private readonly SinaWeiboOAuth2StateRepository $stateRepository,
+        private readonly SinaWeiboOAuth2UserRepository $userRepository,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly ?LoggerInterface $logger = null
     ) {
     }
 
