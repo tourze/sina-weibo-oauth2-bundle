@@ -2,206 +2,312 @@
 
 namespace Tourze\SinaWeiboOAuth2Bundle\Service;
 
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
-use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Token;
-use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboUserInfo;
-use Tourze\SinaWeiboOAuth2Bundle\Event\OAuth2AuthorizeSuccessEvent;
-use Tourze\SinaWeiboOAuth2Bundle\Exception\AuthorizationException;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2State;
+use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2User;
+use Tourze\SinaWeiboOAuth2Bundle\Exception\SinaWeiboOAuth2ApiException;
+use Tourze\SinaWeiboOAuth2Bundle\Exception\SinaWeiboOAuth2ConfigurationException;
+use Tourze\SinaWeiboOAuth2Bundle\Exception\SinaWeiboOAuth2Exception;
+use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository;
+use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2StateRepository;
+use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2UserRepository;
 
-/**
- * 新浪微博OAuth2门面服务
- * 统一提供所有OAuth2操作接口
- */
 class SinaWeiboOAuth2Service
 {
+    private const AUTHORIZE_URL = 'https://api.weibo.com/oauth2/authorize';
+    private const TOKEN_URL = 'https://api.weibo.com/oauth2/access_token';
+    private const USER_INFO_URL = 'https://api.weibo.com/2/users/show.json';
+    private const DEFAULT_TIMEOUT = 30;
+    private const MAX_RETRY_ATTEMPTS = 3;
+
     public function __construct(
-        private readonly OAuth2AuthorizeService $authorizeService,
-        private readonly OAuth2TokenService $tokenService,
-        private readonly SinaWeiboApiService $apiService,
-        private readonly EventDispatcherInterface $eventDispatcher
-    ) {}
-
-    /**
-     * 生成授权URL
-     */
-    public function getAuthorizeUrl(
-        string $appKey,
-        ?string $redirectUri = null,
-        ?string $scope = null,
-        ?string $state = null,
-        bool $forceLogin = false
-    ): string {
-        return $this->authorizeService->generateAuthorizeUrl(
-            $appKey,
-            $redirectUri,
-            $scope,
-            $state,
-            $forceLogin
-        );
+        private HttpClientInterface $httpClient,
+        private SinaWeiboOAuth2ConfigRepository $configRepository,
+        private SinaWeiboOAuth2StateRepository $stateRepository,
+        private SinaWeiboOAuth2UserRepository $userRepository,
+        private EntityManagerInterface $entityManager,
+        private UrlGeneratorInterface $urlGenerator,
+        private ?LoggerInterface $logger = null
+    ) {
     }
 
-    /**
-     * 生成默认授权URL（包含随机state参数）
-     */
-    public function getDefaultAuthorizeUrl(string $appKey): array
+    public function generateAuthorizationUrl(?string $sessionId = null): string
     {
-        $state = $this->authorizeService->generateState();
-        $url = $this->authorizeService->buildDefaultAuthorizeUrl($appKey, $state);
-
-        return [
-            'url' => $url,
-            'state' => $state
-        ];
-    }
-
-    /**
-     * 处理授权回调获取访问令牌
-     */
-    public function handleCallback(
-        string $appKey,
-        array $callbackParams,
-        ?string $expectedState = null,
-        ?int $userId = null
-    ): SinaWeiboOAuth2Token {
-        $code = $this->authorizeService->handleCallback($callbackParams, $expectedState);
-
-        return $this->tokenService->getAccessTokenByCode($appKey, $code, null, $userId);
-    }
-
-    /**
-     * 完整的OAuth2授权流程
-     * 返回授权URL，用户需要访问此URL进行授权
-     */
-    public function startAuthorization(string $appKey): array
-    {
-        return $this->getDefaultAuthorizeUrl($appKey);
-    }
-
-    /**
-     * 完成OAuth2授权流程
-     * 处理授权回调并获取用户信息
-     */
-    public function completeAuthorization(
-        string $appKey,
-        array $callbackParams,
-        string $expectedState,
-        ?int $userId = null
-    ): array {
-        // 获取访问令牌
-        $token = $this->handleCallback($appKey, $callbackParams, $expectedState, $userId);
-
-        // 获取用户信息
-        $userInfo = $this->apiService->getUserInfo($token);
-
-        // 派发包含用户信息的成功事件
-        $this->eventDispatcher->dispatch(
-            new OAuth2AuthorizeSuccessEvent($token, $userInfo, ['complete_flow' => true]),
-            OAuth2AuthorizeSuccessEvent::NAME
-        );
-
-        return [
-            'token' => $token,
-            'user_info' => $userInfo
-        ];
-    }
-
-    /**
-     * 刷新访问令牌
-     */
-    public function refreshToken(SinaWeiboOAuth2Token $token): SinaWeiboOAuth2Token
-    {
-        return $this->tokenService->refreshAccessToken($token);
-    }
-
-    /**
-     * 获取用户信息
-     */
-    public function getUserInfo(SinaWeiboOAuth2Token $token, ?string $uid = null): SinaWeiboUserInfo
-    {
-        return $this->apiService->getUserInfo($token, $uid);
-    }
-
-    /**
-     * 验证令牌有效性
-     */
-    public function verifyToken(SinaWeiboOAuth2Token $token): bool
-    {
-        return $this->apiService->isTokenValid($token);
-    }
-
-    /**
-     * 发送微博
-     */
-    public function postWeibo(SinaWeiboOAuth2Token $token, string $content): array
-    {
-        return $this->apiService->updateStatus($token, $content);
-    }
-
-    /**
-     * 获取用户微博时间线
-     */
-    public function getUserTimeline(SinaWeiboOAuth2Token $token, ?string $uid = null, int $count = 20): array
-    {
-        return $this->apiService->getUserTimeline($token, $uid, $count);
-    }
-
-    /**
-     * 获取用户粉丝列表
-     */
-    public function getFollowers(
-        SinaWeiboOAuth2Token $token,
-        ?string $uid = null,
-        int $count = 20,
-        int $cursor = 0
-    ): array {
-        return $this->apiService->getFollowers($token, $uid, $count, $cursor);
-    }
-
-    /**
-     * 获取用户关注列表
-     */
-    public function getFriends(
-        SinaWeiboOAuth2Token $token,
-        ?string $uid = null,
-        int $count = 20,
-        int $cursor = 0
-    ): array {
-        return $this->apiService->getFriends($token, $uid, $count, $cursor);
-    }
-
-    /**
-     * 获取公共微博时间线
-     */
-    public function getPublicTimeline(SinaWeiboOAuth2Token $token, int $count = 20): array
-    {
-        return $this->apiService->getPublicTimeline($token, $count);
-    }
-
-    /**
-     * 便捷方法：检查并自动刷新令牌
-     */
-    public function ensureValidToken(SinaWeiboOAuth2Token $token): SinaWeiboOAuth2Token
-    {
-        if ($token->isValid()) {
-            return $token;
+        $config = $this->configRepository->findValidConfig();
+        if (!$config) {
+            throw new SinaWeiboOAuth2ConfigurationException('No valid Sina Weibo OAuth2 configuration found');
         }
 
-        if ($token->isRefreshTokenValid()) {
-            return $this->refreshToken($token);
+        $state = bin2hex(random_bytes(16));
+        $stateEntity = new SinaWeiboOAuth2State($state, $config);
+        
+        if ($sessionId) {
+            $stateEntity->setSessionId($sessionId);
         }
+        
+        $this->entityManager->persist($stateEntity);
+        $this->entityManager->flush();
 
-        throw new AuthorizationException(
-            AuthorizationException::INVALID_GRANT,
-            '令牌已过期且无法刷新，需要重新授权'
-        );
+        $redirectUri = $this->urlGenerator->generate('sina_weibo_oauth2_callback', [], UrlGeneratorInterface::ABSOLUTE_URL);
+        
+        $params = [
+            'response_type' => 'code',
+            'client_id' => $config->getAppId(),
+            'redirect_uri' => $redirectUri,
+            'state' => $state,
+            'scope' => $config->getScope() ?: 'email',
+        ];
+
+        return self::AUTHORIZE_URL . '?' . http_build_query($params);
     }
 
-    /**
-     * 便捷方法：获取用户基本信息（自动处理令牌刷新）
-     */
-    public function getUserInfoSafely(SinaWeiboOAuth2Token $token): SinaWeiboUserInfo
+    public function handleCallback(string $code, string $state): SinaWeiboOAuth2User
     {
-        $validToken = $this->ensureValidToken($token);
-        return $this->getUserInfo($validToken);
+        $stateEntity = $this->stateRepository->findValidState($state);
+        if (!$stateEntity || !$stateEntity->isValid()) {
+            throw new SinaWeiboOAuth2Exception('Invalid or expired state', 0, null, ['state' => $state]);
+        }
+
+        $stateEntity->markAsUsed();
+        $this->entityManager->persist($stateEntity);
+        $this->entityManager->flush();
+
+        // Get config from state
+        $config = $stateEntity->getConfig();
+        
+        // Generate redirect URI
+        $redirectUri = $this->urlGenerator->generate('sina_weibo_oauth2_callback', [], UrlGeneratorInterface::ABSOLUTE_URL);
+        
+        // Exchange code for access token
+        $tokenData = $this->exchangeCodeForToken($code, $config->getAppId(), $config->getAppSecret(), $redirectUri);
+        
+        // Get user info
+        $userInfo = $this->fetchUserInfo($tokenData['access_token'], $tokenData['uid']);
+        
+        // Merge all data
+        $userData = array_merge($tokenData, $userInfo);
+        
+        $user = $this->userRepository->updateOrCreate($userData, $config);
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+        
+        return $user;
+    }
+
+    private function exchangeCodeForToken(string $code, string $appId, string $appSecret, string $redirectUri): array
+    {
+        try {
+            $response = $this->httpClient->request('POST', self::TOKEN_URL, [
+                'body' => [
+                    'grant_type' => 'authorization_code',
+                    'client_id' => $appId,
+                    'client_secret' => $appSecret,
+                    'code' => $code,
+                    'redirect_uri' => $redirectUri,
+                ],
+                'timeout' => self::DEFAULT_TIMEOUT,
+                'headers' => [
+                    'User-Agent' => 'SinaWeiboOAuth2Bundle/1.0',
+                    'Accept' => 'application/json',
+                ],
+            ]);
+
+            $data = json_decode($response->getContent(), true);
+        } catch (HttpExceptionInterface $e) {
+            $this->logger?->error('Sina Weibo OAuth2 token exchange HTTP error', [
+                'error' => $e->getMessage(),
+                'status_code' => $e->getResponse()->getStatusCode(),
+            ]);
+            throw new SinaWeiboOAuth2ApiException(
+                'Failed to communicate with Sina Weibo API for token exchange',
+                0,
+                $e,
+                self::TOKEN_URL,
+                null
+            );
+        } catch (\Exception $e) {
+            $this->logger?->error('Sina Weibo OAuth2 token exchange error', ['error' => $e->getMessage()]);
+            throw new SinaWeiboOAuth2ApiException(
+                'Network error during token exchange',
+                0,
+                $e,
+                self::TOKEN_URL,
+                null
+            );
+        }
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new SinaWeiboOAuth2ApiException('Failed to parse token response', 0, null, self::TOKEN_URL, null);
+        }
+
+        if (isset($data['error'])) {
+            $this->logger?->warning('Sina Weibo OAuth2 token exchange API error', [
+                'error' => $data['error'],
+                'error_description' => $data['error_description'] ?? '',
+            ]);
+            throw new SinaWeiboOAuth2ApiException(
+                sprintf('Failed to exchange code for token: %s - %s', $data['error'], $data['error_description'] ?? ''),
+                0,
+                null,
+                self::TOKEN_URL,
+                $data
+            );
+        }
+
+        if (!isset($data['access_token']) || empty($data['access_token'])) {
+            $this->logger?->error('Sina Weibo OAuth2 no access token received', [
+                'response' => substr($response->getContent(), 0, 200),
+            ]);
+            throw new SinaWeiboOAuth2ApiException(
+                'No access token received from Sina Weibo API',
+                0,
+                null,
+                self::TOKEN_URL,
+                $data
+            );
+        }
+
+        return $data;
+    }
+
+    private function fetchUserInfo(string $accessToken, string $uid): array
+    {
+        $response = $this->httpClient->request('GET', self::USER_INFO_URL, [
+            'query' => [
+                'access_token' => $accessToken,
+                'uid' => $uid,
+            ],
+            'timeout' => self::DEFAULT_TIMEOUT,
+            'headers' => [
+                'User-Agent' => 'SinaWeiboOAuth2Bundle/1.0',
+                'Accept' => 'application/json',
+            ],
+        ]);
+
+        $data = json_decode($response->getContent(), true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new SinaWeiboOAuth2ApiException('Failed to parse user info response', 0, null, self::USER_INFO_URL, null);
+        }
+        
+        if (isset($data['error'])) {
+            throw new SinaWeiboOAuth2ApiException(
+                sprintf('Failed to get user info: %s - %s', $data['error'], $data['error_description'] ?? ''),
+                0,
+                null,
+                self::USER_INFO_URL,
+                $data
+            );
+        }
+        
+        return $data;
+    }
+
+    public function getUserInfo(string $uid, bool $forceRefresh = false): array
+    {
+        $user = $this->userRepository->findByUid($uid);
+        if (!$user) {
+            throw new SinaWeiboOAuth2Exception('User not found', 0, null, ['uid' => $uid]);
+        }
+
+        if (!$forceRefresh && !$user->isTokenExpired() && $user->getRawData()) {
+            return $user->getRawData();
+        }
+
+        if ($user->isTokenExpired() && $user->getRefreshToken()) {
+            $this->refreshToken($uid);
+            $user = $this->userRepository->findByUid($uid);
+        }
+
+        $config = $user->getConfig();
+        $userInfo = $this->fetchUserInfo($user->getAccessToken(), $uid);
+        
+        $user->setNickname($userInfo['screen_name'] ?? $userInfo['name'] ?? null)
+            ->setAvatar($userInfo['avatar_large'] ?? $userInfo['profile_image_url'] ?? null)
+            ->setGender($userInfo['gender'] ?? null)
+            ->setLocation($userInfo['location'] ?? null)
+            ->setDescription($userInfo['description'] ?? null)
+            ->setRawData($userInfo);
+            
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+        
+        return $userInfo;
+    }
+
+    public function refreshToken(string $uid): bool
+    {
+        // Note: Sina Weibo API doesn't support refresh tokens in the same way as other OAuth2 providers
+        // This method is kept for interface compatibility but will return false
+        // Users need to re-authenticate when their tokens expire
+        return false;
+    }
+
+    public function refreshExpiredTokens(): int
+    {
+        $expiredUsers = $this->userRepository->findExpiredTokenUsers();
+        $refreshed = 0;
+
+        foreach ($expiredUsers as $user) {
+            if ($this->refreshToken($user->getUid())) {
+                $refreshed++;
+            }
+
+            // Add small delay to avoid rate limiting
+            usleep(100000); // 0.1 seconds
+        }
+
+        return $refreshed;
+    }
+
+    public function cleanupExpiredStates(): int
+    {
+        return $this->stateRepository->cleanupExpiredStates();
+    }
+
+    private function executeWithRetry(callable $operation, int $maxRetries = self::MAX_RETRY_ATTEMPTS): mixed
+    {
+        $lastException = null;
+
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                return $operation();
+            } catch (HttpExceptionInterface $e) {
+                $lastException = $e;
+
+                // Don't retry on client errors (4xx)
+                if ($e->getResponse()->getStatusCode() >= 400 && $e->getResponse()->getStatusCode() < 500) {
+                    throw $e;
+                }
+
+                // Only retry on server errors (5xx) or network issues
+                if ($attempt < $maxRetries) {
+                    $this->logger?->warning('Sina Weibo OAuth2 request failed, retrying', [
+                        'attempt' => $attempt,
+                        'max_retries' => $maxRetries,
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    // Exponential backoff: 1s, 2s, 4s
+                    sleep(2 ** ($attempt - 1));
+                }
+            } catch (\Exception $e) {
+                $lastException = $e;
+                if ($attempt < $maxRetries) {
+                    $this->logger?->warning('Sina Weibo OAuth2 request failed, retrying', [
+                        'attempt' => $attempt,
+                        'max_retries' => $maxRetries,
+                        'error' => $e->getMessage(),
+                    ]);
+                    sleep(1);
+                }
+            }
+        }
+
+        throw $lastException;
     }
 }

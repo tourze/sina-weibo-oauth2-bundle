@@ -1,0 +1,33 @@
+framework:
+    test: true
+    secret: 'test_secret'
+    session:
+        storage_factory_id: session.storage.factory.mock_file
+    validation:
+        email_validation_mode: html5
+    uid:
+        default_uuid_version: 7
+        time_based_uuid_version: 7
+    http_client: ~
+
+doctrine:
+    dbal:
+        driver: pdo_sqlite
+        url: 'sqlite:///:memory:'
+        charset: utf8mb4
+    orm:
+        auto_generate_proxy_classes: true
+        auto_mapping: true
+        controller_resolver:
+            auto_mapping: false
+
+security:
+    providers:
+        in_memory:
+            memory: ~
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+        main:
+            anonymous: true

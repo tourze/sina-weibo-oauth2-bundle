@@ -4,9 +4,25 @@ services:
     autowire: true      # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
 
-  Tourze\SinaWeiboOAuth2Bundle\Command\:
-    resource: '../../Command/'
-  Tourze\SinaWeiboOAuth2Bundle\Repository\:
-    resource: '../../Repository/'
+  # Services
   Tourze\SinaWeiboOAuth2Bundle\Service\:
     resource: '../../Service/'
+
+  # Repositories
+  Tourze\SinaWeiboOAuth2Bundle\Repository\:
+    resource: '../../Repository/'
+
+  # Controllers
+  Tourze\SinaWeiboOAuth2Bundle\Controller\:
+    resource: '../../Controller/'
+    tags: ['controller.service_arguments']
+
+  # Commands
+  Tourze\SinaWeiboOAuth2Bundle\Command\:
+    resource: '../../Command/'
+    tags: ['console.command']
+
+  # Auto-loader for attribute-based routing
+  Tourze\SinaWeiboOAuth2Bundle\Service\AttributeControllerLoader:
+    arguments:
+      $env: '%kernel.environment%'

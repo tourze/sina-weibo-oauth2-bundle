@@ -1,95 +1,112 @@
-# SinaWeiboOAuth2Bundle 测试计划完成报告
+# Sina Weibo OAuth2 Bundle - Test Plan
 
-## 环境检查结果
+## 测试覆盖范围
 
-| 检查项 | 状态 | 说明 |
-|-------|------|------|
-| composer.json autoload-dev | ✅ | 已包含测试命名空间 |
-| phpunit/phpunit 依赖 | ✅ | 已包含 ^10.0 |
-| .github/workflows/phpunit.yml | ✅ | 已存在 |
-| .gitignore | ✅ | 已包含 var/, .idea |
+### 1. 实体测试 (Entity Tests)
+- **SinaWeiboOAuth2ConfigTest**: 配置实体的构造器、getter/setter、流式接口
+- **SinaWeiboOAuth2StateTest**: 状态实体的构造器、有效性检查、过期检查、使用标记
+- **SinaWeiboOAuth2UserTest**: 用户实体的构造器、属性管理、令牌过期检查
 
-## 单元测试完成情况
+### 2. 服务测试 (Service Tests)
+- **SinaWeiboOAuth2ServiceTest**: 
+  - 授权URL生成（成功/失败场景）
+  - 回调处理（成功/无效状态）
+  - 用户信息获取（存在/不存在用户）
+  - 令牌刷新（微博不支持刷新令牌）
+  - 过期状态清理
 
-| 测试文件 | 测试目标 | 关注场景 | 完成状态 | 测试通过 |
-|---------|---------|----------|----------|----------|
-| **Service层单元测试** | | | | |
-| `tests/Service/OAuth2AuthorizeServiceTest.php` | OAuth2AuthorizeService | 授权URL生成、参数验证、回调处理 | ✅ | ✅ |
-| `tests/Service/OAuth2TokenServiceTest.php` | OAuth2TokenService | 令牌获取、刷新、验证机制 | ✅ | ✅ |
-| `tests/Service/SinaWeiboApiServiceTest.php` | SinaWeiboApiService | API调用、HTTP请求处理、错误处理 | ✅ | ✅ |
+### 3. 功能测试 (Functional Tests)
+- **SinaWeiboOAuth2ControllerTest**:
+  - 登录重定向到微博授权
+  - 回调参数验证（有效/无效/缺失参数）
+  - OAuth错误处理
+  - 安全参数格式验证
 
-## 集成测试情况
+### 4. 仓储测试 (Repository Tests)
+- **SinaWeiboOAuth2RepositoryTest**:
+  - 配置仓储：查找有效配置、活跃配置列表
+  - 状态仓储：查找有效状态、清理过期状态、统计
+  - 用户仓储：按UID查找、创建/更新用户、批量操作
 
-| 测试类型 | 状态 | 说明 |
-|---------|------|------|
-| Bundle集成测试 | 🔄 | 正在实现，IntegrationTestKernel支持SQLite内存数据库 |
-| Service层集成测试 | 🔄 | 正在实现，使用IntegrationTestKernel的Doctrine支持 |
-| Repository集成测试 | 🔄 | 正在实现，使用SQLite内存数据库 |
-| Command集成测试 | 🔄 | 正在实现，SyncUserInfoCommand在内存数据库环境下测试 |
+### 5. 命令测试 (Command Tests)
+- **SinaWeiboOAuth2CommandTest**:
+  - 配置管理命令：列表/创建/更新/删除
+  - 清理命令：正常/干运行模式
+  - 令牌刷新命令：微博不支持刷新令牌的提示
 
-**更新**: IntegrationTestKernel实际上支持Doctrine ORM（使用SQLite内存数据库），因此可以实现完整的集成测试。
+### 6. 集成测试 (Integration Tests)
+- **SinaWeiboOAuth2BundleTest**:
+  - 服务注册验证
+  - Doctrine映射加载
+  - 控制台命令注册
+  - 路由加载
+  - Bundle配置验证
 
-## 最终测试结果
+## 测试特殊场景
 
-### 单元测试执行结果
+### 微博 OAuth2 特殊性
+1. **无刷新令牌支持**: 微博API不支持刷新令牌，需要重新授权
+2. **POST方式获取令牌**: 与QQ不同，微博使用POST请求获取访问令牌
+3. **UID字段**: 微博返回的用户唯一标识是`uid`而不是`openid`
+4. **用户信息接口**: 需要同时传递`access_token`和`uid`参数
+
+### 安全性测试
+1. **参数格式验证**: 验证授权码和状态参数的格式
+2. **状态管理**: 验证状态的生成、验证、过期和使用标记
+3. **错误处理**: 测试各种API错误和网络错误场景
+
+### 边界条件测试
+1. **空配置**: 无有效配置时的错误处理
+2. **过期状态**: 过期状态的识别和清理
+3. **重复用户**: 同一用户多次授权的更新逻辑
+4. **缺失字段**: API返回数据缺失字段的处理
+
+## 运行测试
 
 ```bash
-PHPUnit 10.5.46 by Sebastian Bergmann and contributors.
+# 运行所有测试
+vendor/bin/phpunit
 
-Runtime:       PHP 8.4.4
+# 运行特定测试类
+vendor/bin/phpunit tests/Entity/SinaWeiboOAuth2ConfigTest.php
 
-.................. 18 / 18 (100%)
+# 运行功能测试
+vendor/bin/phpunit tests/Functional/
 
-Time: 00:00.035, Memory: 14.00 MB
-
-OK (18 tests, 67 assertions)
+# 生成覆盖率报告
+vendor/bin/phpunit --coverage-html coverage/
 ```
 
-### 测试覆盖场景
+## 测试数据
 
-#### OAuth2AuthorizeService (11个测试)
+### 测试配置
+- App ID: `test_app_id`
+- App Secret: `test_secret`
+- Scope: `email`
 
-- ✅ 服务依赖注入验证
-- ✅ 授权URL生成（基本参数）
-- ✅ 授权URL生成（自定义参数）
-- ✅ 不存在应用配置的异常处理
-- ✅ 无效应用配置的异常处理
-- ✅ 状态码生成功能
-- ✅ 回调参数验证（成功场景）
-- ✅ 回调参数验证（错误场景）
-- ✅ 回调参数验证（缺少code）
-- ✅ 回调参数验证（状态码不匹配）
-- ✅ 默认授权URL构建与回调处理
+### 模拟响应
+```json
+// 令牌响应
+{
+  "access_token": "test_token",
+  "expires_in": 3600,
+  "uid": "test_uid"
+}
 
-#### OAuth2TokenService (4个测试)
+// 用户信息响应
+{
+  "id": "test_uid",
+  "screen_name": "Test User",
+  "profile_image_url": "http://example.com/avatar.jpg",
+  "gender": "m",
+  "location": "北京"
+}
+```
 
-- ✅ 服务依赖注入验证
-- ✅ 令牌获取功能（API交互）
-- ✅ 令牌刷新功能（API交互）
-- ✅ 令牌验证功能（API交互）
+## 质量指标
 
-#### SinaWeiboApiService (3个测试)
-
-- ✅ 服务依赖注入验证
-- ✅ 用户信息获取（API调用）
-- ✅ 微博发布功能（API调用）
-
-### 技术要点
-
-1. **Mock策略**: 使用PHPUnit的createMock为Repository、HTTP客户端等外部依赖创建模拟对象
-2. **HTTP客户端测试**: 验证API请求的URL、参数、方法等是否正确
-3. **异常处理测试**: 覆盖各种错误场景，确保异常类型和消息正确
-4. **边界条件测试**: 测试空值、无效参数、不存在资源等边界情况
-5. **依赖注入测试**: 验证服务构造函数的依赖注入是否正确
-
-### 限制与建议
-
-1. **集成测试限制**: 由于Bundle强依赖Doctrine，无法在IntegrationTestKernel环境下运行集成测试
-2. **建议**: 在实际项目集成时，配置完整的Symfony + Doctrine环境进行端到端测试
-3. **单元测试充分性**: 当前单元测试已覆盖所有核心业务逻辑，能够保证代码质量
-
-## 总结
-
-✅ **单元测试**: 18个测试全部通过，覆盖率高，质量良好  
-❌ **集成测试**: 由于技术限制无法实现  
-✅ **整体评估**: Bundle功能完整，单元测试充分，代码质量有保障
+- **代码覆盖率**: 目标 >= 85%
+- **测试用例数**: 50+ 个测试方法
+- **断言数**: 200+ 个断言
+- **边界条件**: 覆盖所有主要错误场景
+- **集成测试**: 验证Bundle完整性

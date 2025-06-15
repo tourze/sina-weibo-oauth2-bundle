@@ -1,0 +1,3 @@
+sina_weibo_oauth2_bundle:
+    resource: '@SinaWeiboOAuth2Bundle/Controller/'
+    type: attribute
