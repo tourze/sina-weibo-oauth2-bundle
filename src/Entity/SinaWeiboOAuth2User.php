@@ -17,7 +17,7 @@ class SinaWeiboOAuth2User implements \Stringable
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER, options: ['comment' => '主键ID'])]
     private ?int $id = null;
 
     #[IndexColumn]
@@ -28,8 +28,8 @@ class SinaWeiboOAuth2User implements \Stringable
     private string $accessToken;
 
     #[IndexColumn]
-    #[ORM\Column(name: 'token_expire_time', type: Types::DATETIME_MUTABLE, options: ['comment' => '令牌过期时间'])]
-    private \DateTime $tokenExpireTime;
+    #[ORM\Column(name: 'token_expire_time', type: Types::DATETIME_IMMUTABLE, options: ['comment' => '令牌过期时间'])]
+    private \DateTimeImmutable $tokenExpireTime;
 
     #[ORM\Column(name: 'refresh_token', type: Types::TEXT, nullable: true, options: ['comment' => '刷新令牌'])]
     private ?string $refreshToken = null;
@@ -53,6 +53,9 @@ class SinaWeiboOAuth2User implements \Stringable
     #[ORM\Column(type: Types::STRING, length: 500, nullable: true, options: ['comment' => '个人描述'])]
     private ?string $description = null;
 
+    /**
+     * @var array<string, mixed>|null
+     */
     #[ORM\Column(name: 'raw_data', type: Types::JSON, nullable: true, options: ['comment' => '原始API响应数据'])]
     private ?array $rawData = null;
 
@@ -60,7 +63,7 @@ class SinaWeiboOAuth2User implements \Stringable
     {
         $this->uid = $uid;
         $this->accessToken = $accessToken;
-        $this->tokenExpireTime = new \DateTime(sprintf('+%d seconds', $expiresIn));
+        $this->tokenExpireTime = new \DateTimeImmutable(sprintf('+%d seconds', $expiresIn));
         $this->config = $config;
     }
 
@@ -85,14 +88,14 @@ class SinaWeiboOAuth2User implements \Stringable
         return $this;
     }
 
-    public function getTokenExpireTime(): \DateTime
+    public function getTokenExpireTime(): \DateTimeImmutable
     {
         return $this->tokenExpireTime;
     }
 
     public function setExpiresIn(int $expiresIn): self
     {
-        $this->tokenExpireTime = new \DateTime(sprintf('+%d seconds', $expiresIn));
+        $this->tokenExpireTime = new \DateTimeImmutable(sprintf('+%d seconds', $expiresIn));
         return $this;
     }
 
@@ -167,11 +170,17 @@ class SinaWeiboOAuth2User implements \Stringable
         return $this;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getRawData(): ?array
     {
         return $this->rawData;
     }
 
+    /**
+     * @param array<string, mixed>|null $rawData
+     */
     public function setRawData(?array $rawData): self
     {
         $this->rawData = $rawData;
@@ -180,12 +189,12 @@ class SinaWeiboOAuth2User implements \Stringable
 
     public function isTokenExpired(): bool
     {
-        return $this->tokenExpireTime <= new \DateTime();
+        return $this->tokenExpireTime <= new \DateTimeImmutable();
     }
 
     public function __toString(): string
     {
-        return sprintf('SinaWeiboOAuth2User[%s:%s]', $this->uid ?? 'new', $this->nickname ?? 'unknown');
+        return sprintf('SinaWeiboOAuth2User[%s:%s]', $this->uid, $this->nickname ?? 'unknown');
     }
 
     // Compatibility methods for tests

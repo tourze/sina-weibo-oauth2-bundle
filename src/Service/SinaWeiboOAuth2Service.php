@@ -38,14 +38,14 @@ class SinaWeiboOAuth2Service
     public function generateAuthorizationUrl(?string $sessionId = null): string
     {
         $config = $this->configRepository->findValidConfig();
-        if (!$config) {
+        if ($config === null) {
             throw new SinaWeiboOAuth2ConfigurationException('No valid Sina Weibo OAuth2 configuration found');
         }
 
         $state = bin2hex(random_bytes(16));
         $stateEntity = new SinaWeiboOAuth2State($state, $config);
         
-        if ($sessionId) {
+        if ($sessionId !== null) {
             $stateEntity->setSessionId($sessionId);
         }
         
@@ -68,7 +68,7 @@ class SinaWeiboOAuth2Service
     public function handleCallback(string $code, string $state): SinaWeiboOAuth2User
     {
         $stateEntity = $this->stateRepository->findValidState($state);
-        if (!$stateEntity || !$stateEntity->isValid()) {
+        if ($stateEntity === null || !$stateEntity->isValid()) {
             throw new SinaWeiboOAuth2Exception('Invalid or expired state', 0, null, ['state' => $state]);
         }
 
@@ -98,6 +98,9 @@ class SinaWeiboOAuth2Service
         return $user;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function exchangeCodeForToken(string $code, string $appId, string $appSecret, string $redirectUri): array
     {
         try {
@@ -116,6 +119,7 @@ class SinaWeiboOAuth2Service
                 ],
             ]);
 
+            /** @var array<string, mixed> $data */
             $data = json_decode($response->getContent(), true);
         } catch (HttpExceptionInterface $e) {
             $this->logger?->error('Sina Weibo OAuth2 token exchange HTTP error', [
@@ -174,6 +178,9 @@ class SinaWeiboOAuth2Service
         return $data;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function fetchUserInfo(string $accessToken, string $uid): array
     {
         $response = $this->httpClient->request('GET', self::USER_INFO_URL, [
@@ -188,6 +195,7 @@ class SinaWeiboOAuth2Service
             ],
         ]);
 
+        /** @var array<string, mixed> $data */
         $data = json_decode($response->getContent(), true);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -207,18 +215,21 @@ class SinaWeiboOAuth2Service
         return $data;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getUserInfo(string $uid, bool $forceRefresh = false): array
     {
         $user = $this->userRepository->findByUid($uid);
-        if (!$user) {
+        if ($user === null) {
             throw new SinaWeiboOAuth2Exception('User not found', 0, null, ['uid' => $uid]);
         }
 
-        if (!$forceRefresh && !$user->isTokenExpired() && $user->getRawData()) {
+        if (!$forceRefresh && !$user->isTokenExpired() && $user->getRawData() !== null) {
             return $user->getRawData();
         }
 
-        if ($user->isTokenExpired() && $user->getRefreshToken()) {
+        if ($user->isTokenExpired() && $user->getRefreshToken() !== null) {
             $this->refreshToken($uid);
             $user = $this->userRepository->findByUid($uid);
         }

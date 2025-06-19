@@ -40,7 +40,7 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
 
         $user = $this->findByUidAndConfig($uid, $config);
 
-        if (!$user) {
+        if ($user === null) {
             $expiresIn = (int)($data['expires_in'] ?? 3600);
             $user = new SinaWeiboOAuth2User($uid, $data['access_token'], $expiresIn, $config);
         } else {

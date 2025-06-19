@@ -17,15 +17,15 @@ class SinaWeiboOAuth2StateTest extends TestCase
         $this->assertEquals('test_state', $state->getState());
         $this->assertSame($this->config, $state->getConfig());
         $this->assertFalse($state->isUsed());
-        $this->assertInstanceOf(\DateTime::class, $state->getExpireTime());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $state->getExpireTime());
         $this->assertNull($state->getSessionId());
     }
 
     public function testCustomExpirationTime(): void
     {
-        $beforeCreation = new \DateTime('+5 minutes');
+        $beforeCreation = new \DateTimeImmutable('+5 minutes');
         $state = new SinaWeiboOAuth2State('test_state', $this->config, 5);
-        $afterCreation = new \DateTime('+5 minutes');
+        $afterCreation = new \DateTimeImmutable('+5 minutes');
 
         $this->assertGreaterThanOrEqual($beforeCreation, $state->getExpireTime());
         $this->assertLessThanOrEqual($afterCreation, $state->getExpireTime());

@@ -17,7 +17,7 @@ class SinaWeiboOAuth2UserTest extends TestCase
         $this->assertEquals('test_uid', $user->getUid());
         $this->assertEquals('test_token', $user->getAccessToken());
         $this->assertSame($this->config, $user->getConfig());
-        $this->assertInstanceOf(\DateTime::class, $user->getTokenExpireTime());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $user->getTokenExpireTime());
         $this->assertNull($user->getRefreshToken());
     }
 
@@ -48,9 +48,9 @@ class SinaWeiboOAuth2UserTest extends TestCase
     {
         $user = new SinaWeiboOAuth2User('test_uid', 'test_token', 3600, $this->config);
 
-        $beforeUpdate = new \DateTime('+7200 seconds');
+        $beforeUpdate = new \DateTimeImmutable('+7200 seconds');
         $user->setExpiresIn(7200);
-        $afterUpdate = new \DateTime('+7200 seconds');
+        $afterUpdate = new \DateTimeImmutable('+7200 seconds');
 
         $this->assertGreaterThanOrEqual($beforeUpdate, $user->getTokenExpireTime());
         $this->assertLessThanOrEqual($afterUpdate, $user->getTokenExpireTime());

@@ -11,11 +11,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 
 #[AsCommand(
-    name: 'sina-weibo-oauth2:refresh-tokens',
+    name: self::NAME,
     description: 'Refresh expired OAuth2 access tokens'
 )]
 class SinaWeiboOAuth2RefreshTokenCommand extends Command
 {
+    public const NAME = 'sina-weibo-oauth2:refresh-tokens';
     public function __construct(
         private SinaWeiboOAuth2Service $oauth2Service
     ) {
@@ -38,7 +39,7 @@ Users must re-authenticate when their tokens expire.');
         $io = new SymfonyStyle($input, $output);
         $dryRun = $input->getOption('dry-run');
 
-        if ($dryRun) {
+        if ((bool) $dryRun) {
             $io->note('Running in dry-run mode. No changes will be made.');
         }
 
@@ -51,7 +52,7 @@ Users must re-authenticate when their tokens expire.');
         ]);
 
         try {
-            if (!$dryRun) {
+            if (!(bool) $dryRun) {
                 $refreshedCount = $this->oauth2Service->refreshExpiredTokens();
                 if ($refreshedCount > 0) {
                     $io->success(sprintf('Refreshed %d expired tokens', $refreshedCount));

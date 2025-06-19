@@ -16,7 +16,7 @@ class SinaWeiboOAuth2State implements \Stringable
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER, options: ['comment' => '主键ID'])]
     private ?int $id = null;
 
     #[IndexColumn]
@@ -28,8 +28,8 @@ class SinaWeiboOAuth2State implements \Stringable
     private SinaWeiboOAuth2Config $config;
 
     #[IndexColumn]
-    #[ORM\Column(name: 'expire_time', type: Types::DATETIME_MUTABLE, options: ['comment' => '过期时间'])]
-    private \DateTime $expireTime;
+    #[ORM\Column(name: 'expire_time', type: Types::DATETIME_IMMUTABLE, options: ['comment' => '过期时间'])]
+    private \DateTimeImmutable $expireTime;
 
     #[IndexColumn]
     #[ORM\Column(name: 'session_id', type: Types::STRING, length: 255, nullable: true, options: ['comment' => '会话ID'])]
@@ -42,7 +42,7 @@ class SinaWeiboOAuth2State implements \Stringable
     {
         $this->state = $state;
         $this->config = $config;
-        $this->expireTime = new \DateTime(sprintf('+%d minutes', $expiresInMinutes));
+        $this->expireTime = new \DateTimeImmutable(sprintf('+%d minutes', $expiresInMinutes));
     }
 
     public function getId(): ?int
@@ -60,7 +60,7 @@ class SinaWeiboOAuth2State implements \Stringable
         return $this->config;
     }
 
-    public function getExpireTime(): \DateTime
+    public function getExpireTime(): \DateTimeImmutable
     {
         return $this->expireTime;
     }
@@ -89,17 +89,17 @@ class SinaWeiboOAuth2State implements \Stringable
 
     public function isValid(): bool
     {
-        return !$this->used && $this->expireTime > new \DateTime();
+        return !$this->used && $this->expireTime > new \DateTimeImmutable();
     }
 
     public function isExpired(): bool
     {
-        return $this->expireTime <= new \DateTime();
+        return $this->expireTime <= new \DateTimeImmutable();
     }
 
     public function __toString(): string
     {
-        return sprintf('SinaWeiboOAuth2State[%s]', $this->state ?? 'new');
+        return sprintf('SinaWeiboOAuth2State[%s]', $this->state);
     }
 
     // Compatibility methods for tests

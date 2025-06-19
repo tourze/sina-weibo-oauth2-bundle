@@ -11,11 +11,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 
 #[AsCommand(
-    name: 'sina-weibo-oauth2:cleanup',
+    name: self::NAME,
     description: 'Clean up expired OAuth2 states and tokens'
 )]
 class SinaWeiboOAuth2CleanupCommand extends Command
 {
+    public const NAME = 'sina-weibo-oauth2:cleanup';
     public function __construct(
         private SinaWeiboOAuth2Service $oauth2Service
     ) {
@@ -34,14 +35,14 @@ class SinaWeiboOAuth2CleanupCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $dryRun = $input->getOption('dry-run');
 
-        if ($dryRun) {
+        if ((bool) $dryRun) {
             $io->note('Running in dry-run mode. No changes will be made.');
         }
 
         $io->title('Sina Weibo OAuth2 Cleanup');
 
         try {
-            if (!$dryRun) {
+            if (!(bool) $dryRun) {
                 $cleanedStates = $this->oauth2Service->cleanupExpiredStates();
                 $io->success(sprintf('Cleaned up %d expired states', $cleanedStates));
             } else {

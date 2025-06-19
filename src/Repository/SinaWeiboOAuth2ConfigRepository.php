@@ -28,7 +28,7 @@ class SinaWeiboOAuth2ConfigRepository extends ServiceEntityRepository
 
     public function findValidConfig(): ?SinaWeiboOAuth2Config
     {
-        if (!$this->cache) {
+        if ($this->cache === null) {
             return $this->findValidConfigFromDatabase();
         }
 
@@ -62,7 +62,7 @@ class SinaWeiboOAuth2ConfigRepository extends ServiceEntityRepository
 
     public function invalidateCache(): void
     {
-        if ($this->cache) {
+        if ($this->cache !== null) {
             $this->cache->delete(self::CACHE_KEY_VALID_CONFIG);
         }
     }
