@@ -9,15 +9,14 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 
-#[Route('/sina-weibo-oauth2/login', name: 'sina_weibo_oauth2_login', methods: ['GET'])]
 class SinaWeiboOAuth2Controller extends AbstractController
 {
     public function __construct(
         private SinaWeiboOAuth2Service $oauth2Service,
-        private ?LoggerInterface $logger = null
     ) {
     }
 
+    #[Route('/sina-weibo-oauth2/login', name: 'sina_weibo_oauth2_login', methods: ['GET'])]
     public function __invoke(Request $request): RedirectResponse
     {
         try {

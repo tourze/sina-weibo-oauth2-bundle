@@ -9,7 +9,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 
-#[Route('/sina-weibo-oauth2/callback', name: 'sina_weibo_oauth2_callback', methods: ['GET'])]
 class SinaWeiboOAuth2CallbackController extends AbstractController
 {
     public function __construct(
@@ -18,6 +17,7 @@ class SinaWeiboOAuth2CallbackController extends AbstractController
     ) {
     }
 
+    #[Route('/sina-weibo-oauth2/callback', name: 'sina_weibo_oauth2_callback', methods: ['GET'])]
     public function __invoke(Request $request): Response
     {
         $code = $request->query->get('code');

@@ -22,7 +22,6 @@ class SinaWeiboOAuth2Service
     private const TOKEN_URL = 'https://api.weibo.com/oauth2/access_token';
     private const USER_INFO_URL = 'https://api.weibo.com/2/users/show.json';
     private const DEFAULT_TIMEOUT = 30;
-    private const MAX_RETRY_ATTEMPTS = 3;
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -278,47 +277,5 @@ class SinaWeiboOAuth2Service
     public function cleanupExpiredStates(): int
     {
         return $this->stateRepository->cleanupExpiredStates();
-    }
-
-    private function executeWithRetry(callable $operation, int $maxRetries = self::MAX_RETRY_ATTEMPTS): mixed
-    {
-        $lastException = null;
-
-        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-            try {
-                return $operation();
-            } catch (HttpExceptionInterface $e) {
-                $lastException = $e;
-
-                // Don't retry on client errors (4xx)
-                if ($e->getResponse()->getStatusCode() >= 400 && $e->getResponse()->getStatusCode() < 500) {
-                    throw $e;
-                }
-
-                // Only retry on server errors (5xx) or network issues
-                if ($attempt < $maxRetries) {
-                    $this->logger?->warning('Sina Weibo OAuth2 request failed, retrying', [
-                        'attempt' => $attempt,
-                        'max_retries' => $maxRetries,
-                        'error' => $e->getMessage(),
-                    ]);
-
-                    // Exponential backoff: 1s, 2s, 4s
-                    sleep(2 ** ($attempt - 1));
-                }
-            } catch (\Exception $e) {
-                $lastException = $e;
-                if ($attempt < $maxRetries) {
-                    $this->logger?->warning('Sina Weibo OAuth2 request failed, retrying', [
-                        'attempt' => $attempt,
-                        'max_retries' => $maxRetries,
-                        'error' => $e->getMessage(),
-                    ]);
-                    sleep(1);
-                }
-            }
-        }
-
-        throw $lastException;
     }
 }
