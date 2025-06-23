@@ -7,7 +7,6 @@ use Symfony\Component\Config\Loader\Loader;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Routing\RouteCollection;
 use Tourze\RoutingAutoLoaderBundle\Service\RoutingAutoLoaderInterface;
-use Tourze\SinaWeiboOAuth2Bundle\Controller\SinaWeiboOAuth2CallbackController;
 use Tourze\SinaWeiboOAuth2Bundle\Controller\SinaWeiboOAuth2Controller;
 
 #[AutoconfigureTag('routing.loader')]
@@ -35,7 +34,6 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
     {
         $collection = new RouteCollection();
         $collection->addCollection($this->controllerLoader->load(SinaWeiboOAuth2Controller::class));
-        $collection->addCollection($this->controllerLoader->load(SinaWeiboOAuth2CallbackController::class));
         return $collection;
     }
 }
