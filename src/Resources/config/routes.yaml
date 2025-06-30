@@ -1,9 +1,9 @@
 sina_weibo_oauth2_login:
   path: /sina-weibo-oauth2/login
-  controller: Tourze\SinaWeiboOAuth2Bundle\Controller\SinaWeiboOAuth2Controller::login
+  controller: Tourze\SinaWeiboOAuth2Bundle\Controller\SinaWeiboOAuth2LoginController
   methods: [GET]
 
 sina_weibo_oauth2_callback:
   path: /sina-weibo-oauth2/callback
-  controller: Tourze\SinaWeiboOAuth2Bundle\Controller\SinaWeiboOAuth2Controller::callback
+  controller: Tourze\SinaWeiboOAuth2Bundle\Controller\SinaWeiboOAuth2CallbackController
   methods: [GET]

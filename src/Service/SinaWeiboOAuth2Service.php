@@ -58,7 +58,7 @@ class SinaWeiboOAuth2Service
             'client_id' => $config->getAppId(),
             'redirect_uri' => $redirectUri,
             'state' => $state,
-            'scope' => $config->getScope() ?: 'email',
+            'scope' => $config->getScope() ?? 'email',
         ];
 
         return self::AUTHORIZE_URL . '?' . http_build_query($params);

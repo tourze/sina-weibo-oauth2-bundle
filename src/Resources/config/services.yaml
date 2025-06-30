@@ -22,3 +22,16 @@ services:
   Tourze\SinaWeiboOAuth2Bundle\Command\:
     resource: '../../Command/'
     tags: ['console.command']
+
+  # Repository service aliases for testing
+  sina_weibo_oauth2.config_repository:
+    alias: Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository
+    public: true
+
+  sina_weibo_oauth2.state_repository:
+    alias: Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2StateRepository
+    public: true
+
+  sina_weibo_oauth2.user_repository:
+    alias: Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2UserRepository
+    public: true

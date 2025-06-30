@@ -4,16 +4,12 @@ namespace Tourze\SinaWeiboOAuth2Bundle\Controller;
 
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 
-/**
- * @phpstan-ignore-next-line symfony.requireInvokableController
- */
-class SinaWeiboOAuth2Controller extends AbstractController
+class SinaWeiboOAuth2CallbackController extends AbstractController
 {
     public function __construct(
         private SinaWeiboOAuth2Service $oauth2Service,
@@ -21,21 +17,8 @@ class SinaWeiboOAuth2Controller extends AbstractController
     ) {
     }
 
-    #[Route('/sina-weibo-oauth2/login', name: 'sina_weibo_oauth2_login', methods: ['GET'])]
-    public function login(Request $request): RedirectResponse
-    {
-        try {
-            $sessionId = $request->getSession()->getId();
-            $authUrl = $this->oauth2Service->generateAuthorizationUrl($sessionId);
-            
-            return new RedirectResponse($authUrl);
-        } catch (\Exception $e) {
-            throw $e;
-        }
-    }
-    
-    #[Route('/sina-weibo-oauth2/callback', name: 'sina_weibo_oauth2_callback', methods: ['GET'])]
-    public function callback(Request $request): Response
+    #[Route(path: '/sina-weibo-oauth2/callback', name: 'sina_weibo_oauth2_callback', methods: ['GET'])]
+    public function __invoke(Request $request): Response
     {
         $code = $request->query->get('code');
         $state = $request->query->get('state');
@@ -82,7 +65,7 @@ class SinaWeiboOAuth2Controller extends AbstractController
             // Here you can integrate with your application's user system
             // For example, create or update local user, set authentication, etc.
             
-            return new Response(sprintf('Successfully logged in as %s', $user->getNickname() ?: $user->getUid()));
+            return new Response(sprintf('Successfully logged in as %s', $user->getNickname() ?? $user->getUid()));
         } catch (\Exception $e) {
             $this->logger?->error('Sina Weibo OAuth2 login failed', [
                 'error' => $e->getMessage(),

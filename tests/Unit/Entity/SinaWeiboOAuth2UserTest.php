@@ -1,6 +1,6 @@
 <?php
 
-namespace Tourze\SinaWeiboOAuth2Bundle\Tests\Entity;
+namespace Tourze\SinaWeiboOAuth2Bundle\Tests\Unit\Entity;
 
 use PHPUnit\Framework\TestCase;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Config;

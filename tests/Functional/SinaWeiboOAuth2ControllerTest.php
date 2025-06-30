@@ -13,6 +13,9 @@ use Tourze\SinaWeiboOAuth2Bundle\Tests\TestKernel;
 
 class SinaWeiboOAuth2ControllerTest extends WebTestCase
 {
+    private $configRepository;
+    private $stateRepository;
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
@@ -35,8 +38,10 @@ class SinaWeiboOAuth2ControllerTest extends WebTestCase
         $em->flush();
         
         // Clear config cache to ensure test data is used
-        $configRepo = $em->getRepository(SinaWeiboOAuth2Config::class);
-        $configRepo->invalidateCache();
+        $this->configRepository = $container->get('sina_weibo_oauth2.config_repository');
+        if (method_exists($this->configRepository, 'invalidateCache')) {
+            $this->configRepository->invalidateCache();
+        }
 
         $client->request('GET', '/sina-weibo-oauth2/login');
         $response = $client->getResponse();
@@ -51,8 +56,8 @@ class SinaWeiboOAuth2ControllerTest extends WebTestCase
         $this->assertStringContainsString('scope=email', $location);
 
         // Verify state was saved
-        $stateRepo = $em->getRepository(SinaWeiboOAuth2State::class);
-        $states = $stateRepo->findAll();
+        $this->stateRepository = $container->get('sina_weibo_oauth2.state_repository');
+        $states = $this->stateRepository->findAll();
         $this->assertCount(1, $states);
         $this->assertFalse($states[0]->isUsed());
     }
@@ -80,8 +85,10 @@ class SinaWeiboOAuth2ControllerTest extends WebTestCase
         // Clear config cache to ensure no config is found
         $container = static::getContainer();
         $em = $container->get('doctrine')->getManager();
-        $configRepo = $em->getRepository(SinaWeiboOAuth2Config::class);
-        $configRepo->invalidateCache();
+        $this->configRepository = $container->get('sina_weibo_oauth2.config_repository');
+        if (method_exists($this->configRepository, 'invalidateCache')) {
+            $this->configRepository->invalidateCache();
+        }
 
         // Override error handling to catch exceptions
         $client->catchExceptions(false);
@@ -182,8 +189,10 @@ class SinaWeiboOAuth2ControllerTest extends WebTestCase
         $em->flush();
         
         // Clear config cache to ensure test data is used
-        $configRepo = $em->getRepository(SinaWeiboOAuth2Config::class);
-        $configRepo->invalidateCache();
+        $this->configRepository = $container->get('sina_weibo_oauth2.config_repository');
+        if (method_exists($this->configRepository, 'invalidateCache')) {
+            $this->configRepository->invalidateCache();
+        }
 
         // Start session
         $client->request('GET', '/sina-weibo-oauth2/login');
@@ -193,8 +202,8 @@ class SinaWeiboOAuth2ControllerTest extends WebTestCase
         $this->assertEquals(302, $response->getStatusCode(), 'Login should redirect to Weibo');
 
         // Verify state was created
-        $stateRepo = $em->getRepository(SinaWeiboOAuth2State::class);
-        $states = $stateRepo->findAll();
+        $this->stateRepository = $container->get('sina_weibo_oauth2.state_repository');
+        $states = $this->stateRepository->findAll();
         $this->assertCount(1, $states);
 
         // Session ID may or may not be available in test environment

@@ -70,7 +70,7 @@ class SinaWeiboOAuth2ConfigCommand extends Command
                 $config->getId(),
                 $config->getAppId(),
                 str_repeat('*', strlen($config->getAppSecret()) - 4) . substr($config->getAppSecret(), -4),
-                $config->getScope() ?: 'email',
+                $config->getScope() ?? 'email',
                 $config->isActive() ? 'Yes' : 'No',
                 $config->getCreatedAt()->format('Y-m-d H:i:s'),
             ];

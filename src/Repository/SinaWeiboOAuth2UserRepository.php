@@ -6,6 +6,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Config;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2User;
+use Tourze\SinaWeiboOAuth2Bundle\Exception\InvalidUserDataException;
 
 /**
  * @method SinaWeiboOAuth2User|null find($id, $lockMode = null, $lockVersion = null)
@@ -35,7 +36,7 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
     {
         $uid = $data['uid'] ?? $data['id'] ?? null;
         if (!$uid) {
-            throw new \InvalidArgumentException('User data must contain uid or id field');
+            throw new InvalidUserDataException('User data must contain uid or id field');
         }
 
         $user = $this->findByUidAndConfig($uid, $config);
