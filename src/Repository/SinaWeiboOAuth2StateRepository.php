@@ -4,14 +4,13 @@ namespace Tourze\SinaWeiboOAuth2Bundle\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Tourze\PHPUnitSymfonyKernelTest\Attribute\AsRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2State;
 
 /**
- * @method SinaWeiboOAuth2State|null find($id, $lockMode = null, $lockVersion = null)
- * @method SinaWeiboOAuth2State|null findOneBy(array $criteria, array $orderBy = null)
- * @method SinaWeiboOAuth2State[] findAll()
- * @method SinaWeiboOAuth2State[] findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ * @extends ServiceEntityRepository<SinaWeiboOAuth2State>
  */
+#[AsRepository(entityClass: SinaWeiboOAuth2State::class)]
 class SinaWeiboOAuth2StateRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -27,9 +26,10 @@ class SinaWeiboOAuth2StateRepository extends ServiceEntityRepository
             ->andWhere('s.expireTime > :now')
             ->setParameter('state', $state)
             ->setParameter('used', false)
-            ->setParameter('now', new \DateTime())
+            ->setParameter('now', new \DateTimeImmutable())
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getOneOrNullResult()
+        ;
     }
 
     public function cleanupExpiredStates(): int
@@ -37,24 +37,31 @@ class SinaWeiboOAuth2StateRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('s')
             ->delete()
             ->where('s.expireTime <= :now OR s.used = :used')
-            ->setParameter('now', new \DateTime())
-            ->setParameter('used', true);
+            ->setParameter('now', new \DateTimeImmutable())
+            ->setParameter('used', true)
+        ;
 
         return $qb->getQuery()->execute();
     }
 
     public function countActiveStates(): int
     {
-        return $this->createQueryBuilder('s')
+        $result = $this->createQueryBuilder('s')
             ->select('COUNT(s.id)')
             ->where('s.used = :used')
             ->andWhere('s.expireTime > :now')
             ->setParameter('used', false)
-            ->setParameter('now', new \DateTime())
+            ->setParameter('now', new \DateTimeImmutable())
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getSingleScalarResult()
+        ;
+
+        return (int) $result;
     }
 
+    /**
+     * @return SinaWeiboOAuth2State[]
+     */
     public function findStatesBySession(string $sessionId): array
     {
         return $this->createQueryBuilder('s')
@@ -62,6 +69,23 @@ class SinaWeiboOAuth2StateRepository extends ServiceEntityRepository
             ->setParameter('sessionId', $sessionId)
             ->orderBy('s.createTime', 'DESC')
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
+    }
+
+    public function save(SinaWeiboOAuth2State $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->persist($entity);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    public function remove(SinaWeiboOAuth2State $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->remove($entity);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
     }
 }

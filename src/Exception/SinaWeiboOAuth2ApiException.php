@@ -4,19 +4,19 @@ namespace Tourze\SinaWeiboOAuth2Bundle\Exception;
 
 class SinaWeiboOAuth2ApiException extends SinaWeiboOAuth2Exception
 {
-    private ?string $apiUrl;
-    private ?array $responseData;
-
+    /**
+     * @param array<string, mixed> $context
+     * @param array<string, mixed>|null $responseData
+     */
     public function __construct(
         string $message = '',
         int $code = 0,
         ?\Throwable $previous = null,
-        ?string $apiUrl = null,
-        ?array $responseData = null
+        private readonly ?string $apiUrl = null,
+        private readonly ?array $responseData = null,
+        array $context = [],
     ) {
-        parent::__construct($message, $code, $previous);
-        $this->apiUrl = $apiUrl;
-        $this->responseData = $responseData;
+        parent::__construct($message, $code, $previous, $context);
     }
 
     public function getApiUrl(): ?string
@@ -24,6 +24,9 @@ class SinaWeiboOAuth2ApiException extends SinaWeiboOAuth2Exception
         return $this->apiUrl;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getResponseData(): ?array
     {
         return $this->responseData;

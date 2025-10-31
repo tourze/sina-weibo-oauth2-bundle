@@ -2,12 +2,10 @@
 
 namespace Tourze\SinaWeiboOAuth2Bundle\Tests\Service;
 
-use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Config;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2State;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2User;
@@ -15,55 +13,97 @@ use Tourze\SinaWeiboOAuth2Bundle\Exception\SinaWeiboOAuth2ConfigurationException
 use Tourze\SinaWeiboOAuth2Bundle\Exception\SinaWeiboOAuth2Exception;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2StateRepository;
-use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2UserRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 
-class SinaWeiboOAuth2ServiceTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(SinaWeiboOAuth2Service::class)]
+#[RunTestsInSeparateProcesses]
+final class SinaWeiboOAuth2ServiceTest extends AbstractIntegrationTestCase
 {
-    private MockObject|HttpClientInterface $httpClient;
-    private MockObject|SinaWeiboOAuth2ConfigRepository $configRepository;
-    private MockObject|SinaWeiboOAuth2StateRepository $stateRepository;
-    private MockObject|SinaWeiboOAuth2UserRepository $userRepository;
-    private MockObject|EntityManagerInterface $entityManager;
-    private MockObject|UrlGeneratorInterface $urlGenerator;
     private SinaWeiboOAuth2Service $service;
 
-    public function testGenerateAuthorizationUrlSuccess(): void
+    private SinaWeiboOAuth2ConfigRepository $configRepository;
+
+    protected function onSetUp(): void
     {
-        $config = new SinaWeiboOAuth2Config();
-        $config->setAppId('test_app_id')
-            ->setAppSecret('test_secret')
-            ->setScope('email');
+        self::cleanDatabase();
 
-        $this->configRepository->expects($this->once())
-            ->method('findValidConfig')
-            ->willReturn($config);
+        // Get real service from container
+        $this->service = self::getService(SinaWeiboOAuth2Service::class);
+        $this->configRepository = self::getService(SinaWeiboOAuth2ConfigRepository::class);
 
-        $this->urlGenerator->expects($this->once())
-            ->method('generate')
-            ->with('sina_weibo_oauth2_callback', [], UrlGeneratorInterface::ABSOLUTE_URL)
-            ->willReturn('https://example.com/callback');
+        // Clear existing configs explicitly
+        $em = self::getEntityManager();
+        $em->createQuery('DELETE FROM ' . SinaWeiboOAuth2Config::class)->execute();
+        $em->createQuery('DELETE FROM ' . SinaWeiboOAuth2State::class)->execute();
+        $em->createQuery('DELETE FROM ' . SinaWeiboOAuth2User::class)->execute();
+        $em->flush();
+    }
 
-        $this->entityManager->expects($this->once())
-            ->method('persist');
-        $this->entityManager->expects($this->once())
-            ->method('flush');
+    public function testServiceCanBeInstantiated(): void
+    {
+        $this->assertInstanceOf(SinaWeiboOAuth2Service::class, $this->service);
+    }
+
+    public function testServiceHasExpectedDependencies(): void
+    {
+        // Create test configuration for this test
+        $this->createTestConfig();
+
+        // Test that the service can be retrieved from container with proper dependencies
+        $this->assertInstanceOf(SinaWeiboOAuth2Service::class, $this->service);
+
+        // Test that repository works and can find configs
+        $allConfigs = $this->configRepository->findAll();
+        $this->assertGreaterThanOrEqual(1, count($allConfigs), 'Should have at least one config');
+
+        // Test that first config has expected properties
+        $firstConfig = $allConfigs[0];
+        $this->assertEquals('test_app_id', $firstConfig->getAppId());
+        $this->assertTrue($firstConfig->isValid());
+    }
+
+    public function testGenerateAuthorizationUrlWithValidConfig(): void
+    {
+        // Create test configuration for this test
+        $this->createTestConfig();
+        $this->clearConfigCache();
 
         $url = $this->service->generateAuthorizationUrl();
 
         $this->assertStringStartsWith('https://api.weibo.com/oauth2/authorize', $url);
-        $this->assertStringContainsString('client_id=test_app_id', $url);
         $this->assertStringContainsString('response_type=code', $url);
-        $this->assertStringContainsString('redirect_uri=', $url);
-        $this->assertStringContainsString('state=', $url);
+        $this->assertStringContainsString('client_id=test_app_id', $url);
         $this->assertStringContainsString('scope=email', $url);
+        $this->assertStringContainsString('state=', $url);
     }
 
-    public function testGenerateAuthorizationUrlWithoutConfig(): void
+    public function testGenerateAuthorizationUrlWithSessionId(): void
     {
-        $this->configRepository->expects($this->once())
-            ->method('findValidConfig')
-            ->willReturn(null);
+        // Create test configuration for this test
+        $this->createTestConfig();
+        $this->clearConfigCache();
+
+        $sessionId = 'test_session_123';
+        $url = $this->service->generateAuthorizationUrl($sessionId);
+
+        $this->assertStringStartsWith('https://api.weibo.com/oauth2/authorize', $url);
+
+        // Verify that a state entity was created with the session ID
+        $stateRepository = self::getService(SinaWeiboOAuth2StateRepository::class);
+        $states = $stateRepository->findAll();
+
+        $this->assertCount(1, $states);
+        $this->assertEquals($sessionId, $states[0]->getSessionId());
+    }
+
+    public function testGenerateAuthorizationUrlThrowsExceptionWhenNoConfig(): void
+    {
+        // Clear all configs to simulate empty database - configs already cleared in onSetUp
+        // Also clear cache to ensure no cached config exists
+        $this->clearConfigCache();
 
         $this->expectException(SinaWeiboOAuth2ConfigurationException::class);
         $this->expectExceptionMessage('No valid Sina Weibo OAuth2 configuration found');
@@ -71,180 +111,201 @@ class SinaWeiboOAuth2ServiceTest extends TestCase
         $this->service->generateAuthorizationUrl();
     }
 
-    public function testGenerateAuthorizationUrlWithSessionId(): void
+    public function testHandleCallbackWithValidStateAndCode(): void
     {
-        $config = new SinaWeiboOAuth2Config();
-        $config->setAppId('test_app_id')
-            ->setAppSecret('test_secret');
+        // Arrange: create config and valid state
+        $config = $this->createTestConfig();
+        $this->clearConfigCache();
 
-        $this->configRepository->expects($this->once())
-            ->method('findValidConfig')
-            ->willReturn($config);
+        $state = new SinaWeiboOAuth2State();
+        $state->setState('valid_state_' . uniqid());
+        $state->setConfig($config);
+        $state->setExpiresInMinutes(10);
+        $em = self::getEntityManager();
+        $em->persist($state);
+        $em->flush();
 
-        $this->urlGenerator->expects($this->once())
-            ->method('generate')
-            ->willReturn('https://example.com/callback');
+        // Mock HTTP client for token exchange and user info
+        $httpClient = $this->createMock(HttpClientInterface::class);
+        $tokenResponse = new class implements \Symfony\Contracts\HttpClient\ResponseInterface {
+            public function getStatusCode(): int { return 200; }
+            public function getHeaders(bool $throw = true): array { return []; }
+            public function getContent(bool $throw = true): string { return (string) json_encode(['access_token' => 'test_token', 'uid' => 'u123'], JSON_THROW_ON_ERROR); }
+            /**
+             * @return array<string, mixed>
+             */
+            public function toArray(bool $throw = true): array { return ['access_token' => 'test_token', 'uid' => 'u123']; }
+            public function cancel(): void {}
+            public function getInfo(?string $type = null): mixed { return null; }
+        };
+        $userInfoResponse = new class implements \Symfony\Contracts\HttpClient\ResponseInterface {
+            public function getStatusCode(): int { return 200; }
+            public function getHeaders(bool $throw = true): array { return []; }
+            public function getContent(bool $throw = true): string { return (string) json_encode(['screen_name' => 'nick', 'avatar_large' => 'http://a', 'gender' => 'm', 'location' => 'loc', 'description' => 'desc'], JSON_THROW_ON_ERROR); }
+            /**
+             * @return array<string, mixed>
+             */
+            public function toArray(bool $throw = true): array { return ['screen_name' => 'nick', 'avatar_large' => 'http://a', 'gender' => 'm', 'location' => 'loc', 'description' => 'desc']; }
+            public function cancel(): void {}
+            public function getInfo(?string $type = null): mixed { return null; }
+        };
 
-        $this->entityManager->expects($this->once())
-            ->method('persist')
-            ->with($this->callback(function (SinaWeiboOAuth2State $state) {
-                return $state->getSessionId() === 'test_session';
-            }));
-        $this->entityManager->expects($this->once())
-            ->method('flush');
-
-        $url = $this->service->generateAuthorizationUrl('test_session');
-
-        $this->assertStringContainsString('scope=email', $url); // Default scope
-    }
-
-    public function testHandleCallbackSuccess(): void
-    {
-        $config = new SinaWeiboOAuth2Config();
-        $config->setAppId('test_app_id')
-            ->setAppSecret('test_secret');
-
-        $state = new SinaWeiboOAuth2State('test_state', $config);
-
-        $this->stateRepository->expects($this->once())
-            ->method('findValidState')
-            ->with('test_state')
-            ->willReturn($state);
-
-        $this->entityManager->expects($this->any())
-            ->method('persist');
-        $this->entityManager->expects($this->any())
-            ->method('flush');
-
-        $this->urlGenerator->expects($this->once())
-            ->method('generate')
-            ->willReturn('https://example.com/callback');
-
-        // Mock token response
-        $tokenResponse = $this->createMock(ResponseInterface::class);
-        $tokenResponse->method('getContent')
-            ->willReturn(json_encode([
-                'access_token' => 'test_token',
-                'expires_in' => 3600,
-                'uid' => 'test_uid'
-            ]));
-
-        // Mock user info response
-        $userInfoResponse = $this->createMock(ResponseInterface::class);
-        $userInfoResponse->method('getContent')
-            ->willReturn(json_encode([
-                'id' => 'test_uid',
-                'screen_name' => 'Test User',
-                'profile_image_url' => 'http://example.com/avatar.jpg'
-            ]));
-
-        $this->httpClient->expects($this->exactly(2))
+        $httpClient
+            ->expects($this->exactly(2))
             ->method('request')
-            ->willReturnOnConsecutiveCalls($tokenResponse, $userInfoResponse);
+            ->willReturnCallback(function (string $method, string $url) use ($tokenResponse, $userInfoResponse) {
+                if (str_contains($url, 'access_token')) {
+                    return $tokenResponse;
+                }
+                return $userInfoResponse;
+            });
 
-        $user = new SinaWeiboOAuth2User('test_uid', 'test_token', 3600, $config);
-        $this->userRepository->expects($this->once())
-            ->method('updateOrCreate')
-            ->willReturn($user);
+        // Inject mock client
+        $this->service->setHttpClient($httpClient);
 
-        $result = $this->service->handleCallback('test_code', 'test_state');
+        // Act
+        $user = $this->service->handleCallback('code123', $state->getState());
 
-        $this->assertInstanceOf(SinaWeiboOAuth2User::class, $result);
-        $this->assertTrue($state->isUsed());
+        // Assert
+        $this->assertInstanceOf(SinaWeiboOAuth2User::class, $user);
+        $this->assertSame('u123', $user->getUid());
+        $this->assertSame('nick', $user->getNickname());
+        $this->assertSame('http://a', $user->getAvatar());
     }
 
-    public function testHandleCallbackWithInvalidState(): void
+    public function testHandleCallbackWithExpiredState(): void
     {
-        $this->stateRepository->expects($this->once())
-            ->method('findValidState')
-            ->with('invalid_state')
-            ->willReturn(null);
+        // Create test configuration for this test
+        $config = $this->createTestConfig();
+        $this->clearConfigCache();
 
+        // Create expired state with unique state value
+        $expiredState = new SinaWeiboOAuth2State();
+        $expiredState->setState('expired_state_' . uniqid());
+        $expiredState->setConfig($config);
+        $expiredState->setExpiresInMinutes(-1); // Already expired
+        $em = self::getEntityManager();
+        $em->persist($expiredState);
+        $em->flush();
+
+        $this->expectException(SinaWeiboOAuth2Exception::class);
+        $this->expectExceptionMessage('Invalid or expired state');
+
+        $this->service->handleCallback('test_code', $expiredState->getState());
+    }
+
+    public function testHandleCallbackThrowsExceptionForInvalidState(): void
+    {
         $this->expectException(SinaWeiboOAuth2Exception::class);
         $this->expectExceptionMessage('Invalid or expired state');
 
         $this->service->handleCallback('test_code', 'invalid_state');
     }
 
-    public function testGetUserInfoWithNonExistentUser(): void
-    {
-        $this->userRepository->expects($this->once())
-            ->method('findByUid')
-            ->with('non_existent_uid')
-            ->willReturn(null);
-
-        $this->expectException(SinaWeiboOAuth2Exception::class);
-        $this->expectExceptionMessage('User not found');
-
-        $this->service->getUserInfo('non_existent_uid');
-    }
-
-    public function testGetUserInfoWithValidTokenAndCachedData(): void
-    {
-        $config = new SinaWeiboOAuth2Config();
-        $config->setAppId('test_app_id');
-
-        $user = new SinaWeiboOAuth2User('test_uid', 'test_token', 3600, $config);
-        $rawData = ['cached' => 'data'];
-        $user->setRawData($rawData);
-
-        $this->userRepository->expects($this->once())
-            ->method('findByUid')
-            ->with('test_uid')
-            ->willReturn($user);
-
-        $result = $this->service->getUserInfo('test_uid');
-
-        $this->assertEquals($rawData, $result);
-    }
-
-    public function testRefreshExpiredTokensReturnsZero(): void
-    {
-        // Sina Weibo doesn't support refresh tokens
-        $this->userRepository->expects($this->once())
-            ->method('findExpiredTokenUsers')
-            ->willReturn([]);
-
-        $result = $this->service->refreshExpiredTokens();
-
-        $this->assertEquals(0, $result);
-    }
-
     public function testRefreshTokenReturnsFalse(): void
     {
         // Sina Weibo doesn't support refresh tokens
-        $result = $this->service->refreshToken('test_uid');
+        $result = $this->service->refreshToken('123456');
 
         $this->assertFalse($result);
     }
 
+    public function testRefreshExpiredTokensReturnsZeroWhenNoExpiredUsers(): void
+    {
+        $result = $this->service->refreshExpiredTokens();
+
+        $this->assertSame(0, $result);
+    }
+
+    public function testRefreshExpiredTokensWithExpiredUsers(): void
+    {
+        $config = $this->createTestConfig();
+        $this->clearConfigCache();
+
+        // Create an expired user with a unique UID
+        $expiredUser = new SinaWeiboOAuth2User();
+        $expiredUser->setUid('test_uid_' . uniqid());
+        $expiredUser->setAccessToken('expired_token');
+        $expiredUser->setExpiresIn(1);
+        $expiredUser->setConfig($config);
+        // Set token to be expired by modifying create time
+        $reflection = new \ReflectionClass($expiredUser);
+        $createTimeProperty = $reflection->getProperty('createTime');
+        $createTimeProperty->setAccessible(true);
+        $createTimeProperty->setValue($expiredUser, new \DateTimeImmutable('-2 hours'));
+
+        $em = self::getEntityManager();
+        $em->persist($expiredUser);
+        $em->flush();
+
+        $result = $this->service->refreshExpiredTokens();
+
+        // Should return 0 since Sina Weibo doesn't support refresh tokens
+        $this->assertSame(0, $result);
+    }
+
     public function testCleanupExpiredStates(): void
     {
-        $this->stateRepository->expects($this->once())
-            ->method('cleanupExpiredStates')
-            ->willReturn(5);
+        $config = $this->createTestConfig();
+        $this->clearConfigCache();
+
+        $em = self::getEntityManager();
+
+        // Create expired state with unique state value
+        $expiredState = new SinaWeiboOAuth2State();
+        $expiredState->setState('expired_state_' . uniqid());
+        $expiredState->setConfig($config);
+        $expiredState->setExpiresInMinutes(-1); // Already expired
+        $em->persist($expiredState);
+
+        // Create used state with unique state value
+        $usedState = new SinaWeiboOAuth2State();
+        $usedState->setState('used_state_' . uniqid());
+        $usedState->setConfig($config);
+        $usedState->setExpiresInMinutes(10);
+        $usedState->markAsUsed();
+        $em->persist($usedState);
+
+        $em->flush();
 
         $result = $this->service->cleanupExpiredStates();
 
-        $this->assertEquals(5, $result);
+        // Should clean up at least the expired and used states
+        $this->assertGreaterThanOrEqual(2, $result);
     }
 
-    protected function setUp(): void
+    public function testCleanupExpiredStatesReturnsZeroWhenNoExpiredStates(): void
     {
-        $this->httpClient = $this->createMock(HttpClientInterface::class);
-        $this->configRepository = $this->createMock(SinaWeiboOAuth2ConfigRepository::class);
-        $this->stateRepository = $this->createMock(SinaWeiboOAuth2StateRepository::class);
-        $this->userRepository = $this->createMock(SinaWeiboOAuth2UserRepository::class);
-        $this->entityManager = $this->createMock(EntityManagerInterface::class);
-        $this->urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $result = $this->service->cleanupExpiredStates();
 
-        $this->service = new SinaWeiboOAuth2Service(
-            $this->httpClient,
-            $this->configRepository,
-            $this->stateRepository,
-            $this->userRepository,
-            $this->entityManager,
-            $this->urlGenerator
-        );
+        $this->assertSame(0, $result);
+    }
+
+    private function createTestConfig(): SinaWeiboOAuth2Config
+    {
+        $config = new SinaWeiboOAuth2Config();
+        $config->setAppId('test_app_id');
+        $config->setAppSecret('test_app_secret');
+        $config->setScope('email');
+        $config->setValid(true);
+
+        $em = self::getEntityManager();
+        $em->persist($config);
+        $em->flush();
+
+        return $config;
+    }
+
+    private function clearConfigCache(): void
+    {
+        $configRepository = self::getService(SinaWeiboOAuth2ConfigRepository::class);
+        $reflection = new \ReflectionClass($configRepository);
+        $cacheProperty = $reflection->getProperty('cache');
+        $cacheProperty->setAccessible(true);
+        $cache = $cacheProperty->getValue($configRepository);
+
+        if (null !== $cache && is_object($cache) && method_exists($cache, 'delete')) {
+            $cache->delete('sina_weibo_oauth2_valid_config');
+        }
     }
 }

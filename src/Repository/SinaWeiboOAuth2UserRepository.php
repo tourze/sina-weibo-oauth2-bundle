@@ -4,16 +4,14 @@ namespace Tourze\SinaWeiboOAuth2Bundle\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Tourze\PHPUnitSymfonyKernelTest\Attribute\AsRepository;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Config;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2User;
-use Tourze\SinaWeiboOAuth2Bundle\Exception\InvalidUserDataException;
 
 /**
- * @method SinaWeiboOAuth2User|null find($id, $lockMode = null, $lockVersion = null)
- * @method SinaWeiboOAuth2User|null findOneBy(array $criteria, array $orderBy = null)
- * @method SinaWeiboOAuth2User[] findAll()
- * @method SinaWeiboOAuth2User[] findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ * @extends ServiceEntityRepository<SinaWeiboOAuth2User>
  */
+#[AsRepository(entityClass: SinaWeiboOAuth2User::class)]
 class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -29,58 +27,20 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
             ->orderBy('u.createTime', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getOneOrNullResult()
+        ;
     }
 
-    public function updateOrCreate(array $data, SinaWeiboOAuth2Config $config): SinaWeiboOAuth2User
+    public function findByUidAndConfigForUpdate(string $uid, SinaWeiboOAuth2Config $config): ?SinaWeiboOAuth2User
     {
-        $uid = $data['uid'] ?? $data['id'] ?? null;
-        if (!$uid) {
-            throw new InvalidUserDataException('User data must contain uid or id field');
-        }
-
-        $user = $this->findByUidAndConfig($uid, $config);
-
-        if ($user === null) {
-            $expiresIn = (int)($data['expires_in'] ?? 3600);
-            $user = new SinaWeiboOAuth2User($uid, $data['access_token'], $expiresIn, $config);
-        } else {
-            $user->setAccessToken($data['access_token']);
-            if (isset($data['expires_in'])) {
-                $user->setExpiresIn((int)$data['expires_in']);
-            }
-        }
-
-        if (isset($data['refresh_token'])) {
-            $user->setRefreshToken($data['refresh_token']);
-        }
-
-        // Update user profile data if available
-        if (isset($data['screen_name'])) {
-            $user->setNickname($data['screen_name']);
-        }
-        if (isset($data['name'])) {
-            $user->setNickname($data['name']);
-        }
-        if (isset($data['profile_image_url'])) {
-            $user->setAvatar($data['profile_image_url']);
-        }
-        if (isset($data['avatar_large'])) {
-            $user->setAvatar($data['avatar_large']);
-        }
-        if (isset($data['gender'])) {
-            $user->setGender($data['gender']);
-        }
-        if (isset($data['location'])) {
-            $user->setLocation($data['location']);
-        }
-        if (isset($data['description'])) {
-            $user->setDescription($data['description']);
-        }
-
-        $user->setRawData($data);
-
-        return $user;
+        return $this->createQueryBuilder('u')
+            ->where('u.uid = :uid')
+            ->andWhere('u.config = :config')
+            ->setParameter('uid', $uid)
+            ->setParameter('config', $config)
+            ->getQuery()
+            ->getOneOrNullResult()
+        ;
     }
 
     public function findByUidAndConfig(string $uid, SinaWeiboOAuth2Config $config): ?SinaWeiboOAuth2User
@@ -91,9 +51,13 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
             ->setParameter('uid', $uid)
             ->setParameter('config', $config)
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getOneOrNullResult()
+        ;
     }
 
+    /**
+     * @return SinaWeiboOAuth2User[]
+     */
     public function findExpiredTokenUsers(): array
     {
         return $this->createQueryBuilder('u')
@@ -101,9 +65,13 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
             ->andWhere('u.refreshToken IS NOT NULL')
             ->setParameter('now', new \DateTime())
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
     }
 
+    /**
+     * @return SinaWeiboOAuth2User[]
+     */
     public function findUsersWithValidTokens(): array
     {
         return $this->createQueryBuilder('u')
@@ -111,9 +79,13 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
             ->setParameter('now', new \DateTime())
             ->orderBy('u.createTime', 'DESC')
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
     }
 
+    /**
+     * @return SinaWeiboOAuth2User[]
+     */
     public function getUsersByConfig(SinaWeiboOAuth2Config $config): array
     {
         return $this->createQueryBuilder('u')
@@ -121,22 +93,82 @@ class SinaWeiboOAuth2UserRepository extends ServiceEntityRepository
             ->setParameter('config', $config)
             ->orderBy('u.createTime', 'DESC')
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
     }
 
+    /**
+     * @param string[] $uids
+     * @return SinaWeiboOAuth2User[]
+     */
     public function getUsersByUids(array $uids): array
     {
-        if (empty($uids)) {
+        if ([] === $uids) {
             return [];
         }
 
-        return $this->getEntityManager()->createQueryBuilder()
-            ->select('u')
-            ->from(SinaWeiboOAuth2User::class, 'u')
+        return $this->createQueryBuilder('u')
             ->where('u.uid IN (:uids)')
             ->setParameter('uids', $uids)
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
     }
 
+    /**
+     * @param array<string, mixed> $userData
+     */
+    public function updateOrCreate(string $uid, SinaWeiboOAuth2Config $config, array $userData): SinaWeiboOAuth2User
+    {
+        $user = $this->findByUidAndConfig($uid, $config);
+
+        if (null === $user) {
+            // Create new user with required parameters
+            $user = new SinaWeiboOAuth2User();
+            $user->setUid($uid);
+            $user->setAccessToken($userData['accessToken'] ?? '');
+            $user->setExpiresIn($userData['expiresIn'] ?? 0);
+            $user->setConfig($config);
+        }
+
+        // Update user data
+        foreach ($userData as $property => $value) {
+            $setter = 'set' . ucfirst($property);
+            if (method_exists($user, $setter)) {
+                match ($setter) {
+                    'setAccessToken' => $user->setAccessToken($value),
+                    'setRefreshToken' => $user->setRefreshToken($value),
+                    'setExpiresIn' => $user->setExpiresIn($value),
+                    'setNickname' => $user->setNickname($value),
+                    'setAvatar' => $user->setAvatar($value),
+                    'setGender' => $user->setGender($value),
+                    'setLocation' => $user->setLocation($value),
+                    'setDescription' => $user->setDescription($value),
+                    'setRawData' => $user->setRawData($value),
+                    default => null,
+                };
+            }
+        }
+
+        $this->getEntityManager()->persist($user);
+        $this->getEntityManager()->flush();
+
+        return $user;
+    }
+
+    public function save(SinaWeiboOAuth2User $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->persist($entity);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    public function remove(SinaWeiboOAuth2User $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->remove($entity);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
 }

@@ -10,15 +10,15 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Tourze\SinaWeiboOAuth2Bundle\Service\SinaWeiboOAuth2Service;
 
-#[AsCommand(
-    name: self::NAME,
-    description: 'Clean up expired OAuth2 states and tokens'
-)]
+#[AsCommand(name: self::NAME, description: 'Clean up expired OAuth2 states and tokens', help: <<<'TXT'
+    This command cleans up expired OAuth2 states and tokens for Sina Weibo OAuth2
+    TXT)]
 class SinaWeiboOAuth2CleanupCommand extends Command
 {
     public const NAME = 'sina-weibo-oauth2:cleanup';
+
     public function __construct(
-        private SinaWeiboOAuth2Service $oauth2Service
+        private SinaWeiboOAuth2Service $oauth2Service,
     ) {
         parent::__construct();
     }
@@ -27,7 +27,7 @@ class SinaWeiboOAuth2CleanupCommand extends Command
     {
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show what would be cleaned up without actually doing it')
-            ->setHelp('This command cleans up expired OAuth2 states and tokens for Sina Weibo OAuth2');
+        ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -52,6 +52,7 @@ class SinaWeiboOAuth2CleanupCommand extends Command
             return Command::SUCCESS;
         } catch (\Exception $e) {
             $io->error('Failed to perform cleanup: ' . $e->getMessage());
+
             return Command::FAILURE;
         }
     }

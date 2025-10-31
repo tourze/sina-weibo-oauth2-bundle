@@ -13,16 +13,16 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Tourze\SinaWeiboOAuth2Bundle\Entity\SinaWeiboOAuth2Config;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository;
 
-#[AsCommand(
-    name: self::NAME,
-    description: 'Manage Sina Weibo OAuth2 configuration'
-)]
+#[AsCommand(name: self::NAME, description: 'Manage Sina Weibo OAuth2 configuration', help: <<<'TXT'
+    This command allows you to manage Sina Weibo OAuth2 configurations
+    TXT)]
 class SinaWeiboOAuth2ConfigCommand extends Command
 {
     public const NAME = 'sina-weibo-oauth2:config';
+
     public function __construct(
         private SinaWeiboOAuth2ConfigRepository $configRepository,
-        private EntityManagerInterface $entityManager
+        private EntityManagerInterface $entityManager,
     ) {
         parent::__construct();
     }
@@ -36,7 +36,7 @@ class SinaWeiboOAuth2ConfigCommand extends Command
             ->addOption('scope', null, InputOption::VALUE_OPTIONAL, 'OAuth2 scope', 'email')
             ->addOption('active', null, InputOption::VALUE_OPTIONAL, 'Is active (true/false)', 'true')
             ->addOption('id', null, InputOption::VALUE_REQUIRED, 'Config ID for update/delete operations')
-            ->setHelp('This command allows you to manage Sina Weibo OAuth2 configurations');
+        ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -49,7 +49,7 @@ class SinaWeiboOAuth2ConfigCommand extends Command
             'create' => $this->createConfig($input, $io),
             'update' => $this->updateConfig($input, $io),
             'delete' => $this->deleteConfig($input, $io),
-            default => $io->error(sprintf('Unknown action: %s', $action))
+            default => $io->error(sprintf('Unknown action: %s', $action)),
         };
 
         return Command::SUCCESS;
@@ -59,8 +59,9 @@ class SinaWeiboOAuth2ConfigCommand extends Command
     {
         $configs = $this->configRepository->findAll();
 
-        if (empty($configs)) {
+        if ([] === $configs) {
             $io->info('No Sina Weibo OAuth2 configurations found.');
+
             return;
         }
 
@@ -71,8 +72,8 @@ class SinaWeiboOAuth2ConfigCommand extends Command
                 $config->getAppId(),
                 str_repeat('*', strlen($config->getAppSecret()) - 4) . substr($config->getAppSecret(), -4),
                 $config->getScope() ?? 'email',
-                $config->isActive() ? 'Yes' : 'No',
-                $config->getCreatedAt()->format('Y-m-d H:i:s'),
+                $config->isValid() ? 'Yes' : 'No',
+                $config->getCreateTime()?->format('Y-m-d H:i:s') ?? 'N/A',
             ];
         }
 
@@ -89,16 +90,17 @@ class SinaWeiboOAuth2ConfigCommand extends Command
         $scope = $input->getOption('scope');
         $active = filter_var($input->getOption('active'), FILTER_VALIDATE_BOOLEAN);
 
-        if (empty($appId) || empty($appSecret)) {
+        if (null === $appId || '' === $appId || null === $appSecret || '' === $appSecret) {
             $io->error('App ID and App Secret are required for creating configuration');
+
             return;
         }
 
         $config = new SinaWeiboOAuth2Config();
-        $config->setAppId($appId)
-            ->setAppSecret($appSecret)
-            ->setScope($scope)
-            ->setValid($active);
+        $config->setAppId($appId);
+        $config->setAppSecret($appSecret);
+        $config->setScope($scope);
+        $config->setValid($active);
 
         $this->entityManager->persist($config);
         $this->entityManager->flush();
@@ -109,14 +111,16 @@ class SinaWeiboOAuth2ConfigCommand extends Command
     private function updateConfig(InputInterface $input, SymfonyStyle $io): void
     {
         $id = $input->getOption('id');
-        if (empty($id)) {
+        if (null === $id || '' === $id) {
             $io->error('Config ID is required for update operation');
+
             return;
         }
 
         $config = $this->configRepository->find($id);
-        if ($config === null) {
+        if (null === $config) {
             $io->error(sprintf('Configuration with ID %d not found', $id));
+
             return;
         }
 
@@ -146,14 +150,16 @@ class SinaWeiboOAuth2ConfigCommand extends Command
     private function deleteConfig(InputInterface $input, SymfonyStyle $io): void
     {
         $id = $input->getOption('id');
-        if (empty($id)) {
+        if (null === $id || '' === $id) {
             $io->error('Config ID is required for delete operation');
+
             return;
         }
 
         $config = $this->configRepository->find($id);
-        if ($config === null) {
+        if (null === $config) {
             $io->error(sprintf('Configuration with ID %d not found', $id));
+
             return;
         }
 

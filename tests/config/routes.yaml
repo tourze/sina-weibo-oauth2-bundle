@@ -1,2 +1,0 @@
-sina_weibo_oauth2:
-    resource: '../../src/Resources/config/routes.yaml'

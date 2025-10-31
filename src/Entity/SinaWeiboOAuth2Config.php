@@ -4,6 +4,7 @@ namespace Tourze\SinaWeiboOAuth2Bundle\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 use Tourze\DoctrineTimestampBundle\Traits\TimestampableAware;
 use Tourze\SinaWeiboOAuth2Bundle\Repository\SinaWeiboOAuth2ConfigRepository;
 
@@ -19,15 +20,21 @@ class SinaWeiboOAuth2Config implements \Stringable
     private ?int $id = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => '微博应用ID'])]
+    #[Assert\NotBlank(message: 'App ID cannot be empty')]
+    #[Assert\Length(max: 255, maxMessage: 'App ID cannot be longer than {{ limit }} characters')]
     private string $appId;
 
     #[ORM\Column(type: Types::STRING, length: 500, options: ['comment' => '微博应用密钥'])]
+    #[Assert\NotBlank(message: 'App Secret cannot be empty')]
+    #[Assert\Length(max: 500, maxMessage: 'App Secret cannot be longer than {{ limit }} characters')]
     private string $appSecret;
 
     #[ORM\Column(type: Types::STRING, length: 500, nullable: true, options: ['comment' => 'OAuth2授权范围'])]
+    #[Assert\Length(max: 500, maxMessage: 'Scope cannot be longer than {{ limit }} characters')]
     private ?string $scope = null;
 
     #[ORM\Column(type: Types::BOOLEAN, options: ['comment' => '是否启用此配置', 'default' => true])]
+    #[Assert\NotNull(message: 'Valid status cannot be null')]
     private bool $valid = true;
 
     public function getId(): ?int
@@ -40,10 +47,9 @@ class SinaWeiboOAuth2Config implements \Stringable
         return $this->appId;
     }
 
-    public function setAppId(string $appId): self
+    public function setAppId(string $appId): void
     {
         $this->appId = $appId;
-        return $this;
     }
 
     public function getAppSecret(): string
@@ -51,10 +57,9 @@ class SinaWeiboOAuth2Config implements \Stringable
         return $this->appSecret;
     }
 
-    public function setAppSecret(string $appSecret): self
+    public function setAppSecret(string $appSecret): void
     {
         $this->appSecret = $appSecret;
-        return $this;
     }
 
     public function getScope(): ?string
@@ -62,10 +67,9 @@ class SinaWeiboOAuth2Config implements \Stringable
         return $this->scope;
     }
 
-    public function setScope(?string $scope): self
+    public function setScope(?string $scope): void
     {
         $this->scope = $scope;
-        return $this;
     }
 
     public function isValid(): bool
@@ -73,10 +77,9 @@ class SinaWeiboOAuth2Config implements \Stringable
         return $this->valid;
     }
 
-    public function setValid(bool $valid): self
+    public function setValid(bool $valid): void
     {
         $this->valid = $valid;
-        return $this;
     }
 
     /**
@@ -90,25 +93,15 @@ class SinaWeiboOAuth2Config implements \Stringable
     /**
      * @deprecated Use setValid() instead
      */
-    public function setIsActive(bool $isActive): self
+    public function setIsActive(bool $isActive): void
     {
         $this->valid = $isActive;
-        return $this;
     }
 
     public function __toString(): string
     {
-        return sprintf('SinaWeiboOAuth2Config[%s]', $this->appId ?? 'new');
-    }
+        $appId = isset($this->appId) ? $this->appId : '';
 
-    // Compatibility methods for tests
-    public function getCreatedAt(): ?\DateTimeInterface
-    {
-        return $this->getCreateTime();
-    }
-
-    public function getUpdatedAt(): ?\DateTimeInterface
-    {
-        return $this->getUpdateTime();
+        return sprintf('SinaWeiboOAuth2Config[%s]', $appId);
     }
 }
